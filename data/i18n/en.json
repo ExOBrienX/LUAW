@@ -1528,5 +1528,12 @@
 "Exportar logs (zip)": "Export logs (zip)",
 "Arma un zip con los logs recientes en el escritorio, para adjuntarlo a un reporte (súbelo a Google Drive o similar y pega el enlace en el formulario).": "Saves a zip with your recent logs on the Desktop to attach to a report (upload it to Google Drive or similar and paste the link in the form).",
 "Logs exportados a {0}.": "Logs exported to {0}.",
-"No se pudieron exportar los logs ({0}).": "Could not export the logs ({0})."
+"No se pudieron exportar los logs ({0}).": "Could not export the logs ({0}).",
+"Hay una versión nueva: LUAW {0}.": "A new version is available: LUAW {0}.",
+"No se pudo buscar una versión nueva ({0}).": "Could not check for a new version ({0}).",
+"Hay una versión nueva de LUAW: {0} (tienes la {1}).": "A new version of LUAW is available: {0} (you have {1}).",
+"LUAW {0} disponible": "LUAW {0} available",
+"Tienes la versión {0}. La nueva trae correcciones y mejoras. Bájala desde flightsim.to y descomprímela donde quieras: tu configuración, tus vuelos y las voces instaladas se mantienen.": "You have version {0}. The new one brings fixes and improvements. Download it from flightsim.to and unzip it anywhere: your settings, flights and installed voices are kept.",
+"Ver en flightsim.to": "View on flightsim.to",
+"Ahora no": "Not now"
 }

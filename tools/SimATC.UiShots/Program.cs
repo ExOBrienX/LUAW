@@ -117,6 +117,11 @@ vm.AskClearPlanCommand.Execute(null);
 Pump(700);
 Shot("10-aviso-modal");
 vm.NoticeSecondaryCommand.Execute(null);
+// El aviso de versión nueva (ADR-161), con una versión de ejemplo.
+vm.OfferUpdate("0.9.3-beta.1");
+Pump(700);
+Shot("19-version-nueva");
+vm.NoticeSecondaryCommand.Execute(null);
 // Configuración entera (ventana alta) y el micrófono abierto en el panel de comunicaciones.
 window.Height = 2300;
 vm.Panel = "settings";

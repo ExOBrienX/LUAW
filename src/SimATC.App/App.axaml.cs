@@ -75,5 +75,7 @@ public partial class App : Application
         desktop.MainWindow = main;
         main.Show();
         splash.Close();
+        // ¿Hay una versión nueva? (ADR-161; como mucho una vez al día, en segundo plano)
+        _ = vm.CheckForUpdateAsync();
     }
 }

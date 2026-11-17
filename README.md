@@ -185,7 +185,8 @@ Every instruction waits for your readback, and ATC checks it: say a different nu
    **Start traffic**.
 
 The `README.txt` in the download has the full guide. You can close LUAW and reopen it with the simulator running: it
-removes its aircraft when it closes and offers to resume your flight.
+removes its aircraft when it closes and offers to resume your flight. When a new version is out, LUAW tells you when it
+starts (it checks the latest release on GitHub at most once a day); just unzip the new one: your settings are kept.
 
 <details>
 <summary><b>Build from source</b></summary>

@@ -1048,6 +1048,10 @@
                             <Image DockPanel.Dock="Left" Source="/Assets/simatc-64.png" Width="48" Height="48" Margin="0,0,16,0" VerticalAlignment="Top" />
                             <StackPanel Spacing="8">
                                 <TextBlock Classes="h2" Text="{Binding AboutTitle}" />
+                                <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasUpdate}">
+                                    <TextBlock Text="{Binding UpdateText}" Foreground="{StaticResource Accent}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Button Classes="small" Content="{app:T 'Ver en flightsim.to'}" Command="{Binding OpenUpdatePageCommand}" />
+                                </StackPanel>
                                 <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextBody}"
                                            Text="{app:T 'Control aéreo y tráfico IA para Microsoft Flight Simulator 2024. Software libre con licencia GPL-3.0. © 2026 ExOBrienX.'}" />
                                 <TextBlock Classes="label" TextWrapping="Wrap"

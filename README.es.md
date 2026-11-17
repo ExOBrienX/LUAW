@@ -225,6 +225,9 @@ dotnet run --project src/SimATC.App
 powershell -ExecutionPolicy Bypass -File tools/package.ps1   # zip de la versión en artifacts/
 ```
 
+Cuando sale una versión nueva, LUAW te avisa al abrir (consulta la última versión en GitHub como mucho una vez al día);
+basta descomprimir la nueva: tu configuración se mantiene.
+
 Abre MSFS primero. La app se conecta sola, detecta el aeropuerto donde estás y arranca con **Iniciar tráfico**. Puedes
 cerrarla y volver a abrirla con el simulador abierto: limpia sus aviones al salir y ofrece retomar el vuelo.
 
