@@ -1,0 +1,136 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:app="using:SimATC.App"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SimATC.App.ViewModels"
+             xmlns:comms="using:SimATC.Core.Comms"
+             x:Class="SimATC.App.Views.StepView"
+             x:DataType="vm:CommsViewModel">
+    <!-- Qué decir ahora (RF-30b): el paso en español, los botones para sintonizar y las frases sugeridas. -->
+    <Border Classes="card-step" IsVisible="{Binding HasStep}">
+        <StackPanel Spacing="8">
+            <!-- Se puede plegar: queda solo el paso (las sugerencias siguen en gris dentro del campo, con TAB). -->
+            <DockPanel>
+                <ToggleButton DockPanel.Dock="Right" Classes="small" IsChecked="{Binding StepCollapsed}" Padding="6,0"
+                              ToolTip.Tip="{app:T 'Pliega o despliega las sugerencias'}">
+                    <Panel>
+                        <TextBlock Text="▴" IsVisible="{Binding !StepCollapsed}" />
+                        <TextBlock Text="▾" IsVisible="{Binding StepCollapsed}" />
+                    </Panel>
+                </ToggleButton>
+                <TextBlock Classes="label" Text="{app:T 'Qué decir ahora'}" VerticalAlignment="Center" />
+            </DockPanel>
+            <!-- Instrucciones vigentes (ADR-105): lo autorizado y lo que vigila el ATC, siempre a la vista. -->
+            <Border IsVisible="{Binding HasOrders}" Background="#14FFFFFF" CornerRadius="6" Padding="8,6">
+                <StackPanel Spacing="3">
+                    <TextBlock Classes="label" Text="{app:T 'Instrucciones vigentes'}" />
+                    <ItemsControl ItemsSource="{Binding Orders}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="comms:PilotOrder">
+                                <Grid ColumnDefinitions="92,*" Margin="0,1">
+                                    <TextBlock Text="{Binding Label}" Foreground="{StaticResource TextDim}" FontSize="12" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Value}" Foreground="{StaticResource TextMain}" FontSize="12.5"
+                                               TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+            <TextBlock Text="{Binding StepText}" Foreground="{StaticResource TextMain}" TextWrapping="Wrap" IsVisible="{Binding StepText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <!-- Lo que tienes que hacer en el avión antes de hablar: siempre a la vista, aunque las sugerencias estén plegadas. -->
+            <WrapPanel>
+                <Button Classes="action" Classes.pending="{Binding HasStepTune}" Command="{Binding TuneCommand}" CommandParameter="{Binding StepTune}"
+                        Margin="0,0,8,4" IsVisible="{Binding HasStepTune}" ToolTip.Tip="{app:T 'Pone esta frecuencia en el COM1 de tu avión'}">
+                    <TextBlock>
+                        <Run Text="{app:T 'Sintonizar '}" /><Run Text="{Binding StepTune.Name, FallbackValue=''}" FontWeight="SemiBold" /><Run Text="  " /><Run
+                            Text="{Binding StepTune.FrequencyText, FallbackValue=''}" FontFamily="{StaticResource Mono}" Foreground="{StaticResource Freq}" />
+                    </TextBlock>
+                </Button>
+                <Button Classes="action" Classes.pending="{Binding SquawkPending}" Command="{Binding SetSquawkCommand}" Margin="0,0,8,4"
+                        IsVisible="{Binding SquawkPending}" ToolTip.Tip="{Binding TransponderText}">
+                    <TextBlock>
+                        <Run Text="{app:T 'Poner squawk '}" /><Run Text="{Binding Clearance.SquawkText, FallbackValue=''}" FontFamily="{StaticResource Mono}"
+                                                         Foreground="{StaticResource Freq}" />
+                    </TextBlock>
+                </Button>
+            </WrapPanel>
+            <StackPanel Spacing="8" IsVisible="{Binding !StepCollapsed}">
+            <Panel Classes="sendvia">
+                <TextBlock Text="{Binding SendVia}" FontSize="11.5" Foreground="{StaticResource TextDim}" TextWrapping="Wrap" />
+            </Panel>
+            <TextBlock IsVisible="{Binding HasAutoPushback}" Foreground="{StaticResource Accent}" TextWrapping="Wrap" FontSize="12.5">
+                <Run Text="{app:T 'Automático: '}" FontWeight="SemiBold" /><Run Text="{Binding AutoPushbackText}" />
+            </TextBlock>
+            <WrapPanel>
+                <Button Classes="small" Content="{app:T 'Pushback automático'}" Command="{Binding AutoPushbackCommand}" Padding="8,2" Margin="0,0,8,4"
+                        IsVisible="{Binding HasAutoPushback}" ToolTip.Tip="{app:T 'Empieza el pushback de la línea que se ve en el radar'}" />
+                <Button Classes="small" Content="{Binding PlanPushbackLabel}" Command="{Binding PlanPushbackCommand}" Padding="8,2" Margin="0,0,8,4"
+                        IsVisible="{Binding CanPlanPushback}" ToolTip.Tip="{app:T 'Abre la ventana para planear el pushback a mano'}" />
+                <Button Classes="small" Command="{Binding TuneCommand}" CommandParameter="{Binding AtisTune}" Padding="8,2" Margin="0,0,8,4"
+                        IsVisible="{Binding HasAtisTune}" ToolTip.Tip="{app:T 'Escucha el ATIS antes de pedir la autorización'}">
+                    <TextBlock>
+                        <Run Text="{app:T 'Escuchar '}" /><Run Text="{Binding AtisTune.Label, FallbackValue=''}" />
+                    </TextBlock>
+                </Button>
+            </WrapPanel>
+            <ScrollViewer Classes="suggestions" IsVisible="{Binding HasSuggestions}">
+            <ItemsControl ItemsSource="{Binding SuggestionItems}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="6" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:SuggestionItem">
+                        <Button Classes="suggestion" Classes.selected="{Binding IsSelected}" HorizontalAlignment="Stretch"
+                                Command="{Binding $parent[UserControl].((vm:CommsViewModel)DataContext).PickSuggestionCommand}"
+                                CommandParameter="{Binding}" ToolTip.Tip="{Binding Spoken}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{Binding Text}" Foreground="{StaticResource TextMain}" TextWrapping="Wrap" />
+                                <Panel Classes="spoken">
+                                    <TextBlock Text="{Binding Spoken}" IsVisible="{Binding HasSpoken}" FontSize="12" FontStyle="Italic"
+                                               Foreground="{StaticResource TextDim}" TextWrapping="Wrap" />
+                                </Panel>
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            </ScrollViewer>
+            <!-- Qué más puedo pedir (ADR-132): por grupos; clic deja la frase en el campo. -->
+            <Panel Classes="requests">
+                <Expander Header="{app:T 'Qué puedo pedirle al ATC'}" IsExpanded="{Binding RequestMenuOpen}" IsVisible="{Binding HasRequestMenu}"
+                          HorizontalAlignment="Stretch" Padding="8,6" MinHeight="0">
+                    <ItemsControl ItemsSource="{Binding RequestMenu}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:RequestGroup">
+                                <StackPanel Spacing="4" Margin="0,2,0,8">
+                                    <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Accent}" />
+                                    <ItemsControl ItemsSource="{Binding Items}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="comms:PilotRequest">
+                                                <Button Classes="suggestion" Margin="0,2" Padding="9,6" ToolTip.Tip="{Binding Spoken}"
+                                                        Command="{Binding $parent[UserControl].((vm:CommsViewModel)DataContext).PickRequestCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <StackPanel Spacing="1">
+                                                        <TextBlock Text="{Binding Text}" Foreground="{StaticResource TextMain}" TextWrapping="Wrap" FontSize="13" />
+                                                        <TextBlock Text="{Binding Help}" Foreground="{StaticResource TextDim}" TextWrapping="Wrap" FontSize="11.5" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Expander>
+            </Panel>
+            <Panel Classes="full wideonly">
+                <TextBlock FontSize="11" Foreground="{StaticResource TextFaint}" TextWrapping="Wrap" IsVisible="{Binding HasSuggestions}"
+                           Text="{app:T 'Clic o TAB la escribe · ↑ ↓ elige otra · la cursiva es cómo se pronuncia'}" />
+            </Panel>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 44" width="1200" height="44" role="img" aria-label="">
+  <defs>
+    <path id="p" d="M11 0 L4 2 L-1 10 L-3 10 L-1 2 L-7 1.5 L-9 4 L-10.5 4 L-9.5 0 L-10.5 -4 L-9 -4 L-7 -1.5 L-1 -2 L-3 -10 L-1 -10 L4 -2 Z"/>
+    <linearGradient id="fade" x1="0" x2="1">
+      <stop offset="0" stop-color="#4CC2FF" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#4CC2FF" stop-opacity=".7"/>
+      <stop offset="1" stop-color="#4CC2FF" stop-opacity="0"/>
+    </linearGradient>
+    <style>
+      .l { animation: b 1.8s ease-in-out infinite }
+      @keyframes b { 0%,100% { opacity: .2 } 50% { opacity: 1 } }
+    </style>
+  </defs>
+  <!-- Eje de calle de rodaje y luces de borde -->
+  <line x1="40" y1="22" x2="1160" y2="22" stroke="url(#fade)" stroke-width="1.5" stroke-dasharray="14 10"/>
+  <g fill="#F5A524">
+    <circle class="l" cx="200" cy="8" r="2"/><circle class="l" cx="400" cy="8" r="2" style="animation-delay:.3s"/>
+    <circle class="l" cx="600" cy="8" r="2" style="animation-delay:.6s"/><circle class="l" cx="800" cy="8" r="2" style="animation-delay:.9s"/>
+    <circle class="l" cx="1000" cy="8" r="2" style="animation-delay:1.2s"/>
+  </g>
+  <g fill="#3DDC84">
+    <circle class="l" cx="200" cy="36" r="2" style="animation-delay:.15s"/><circle class="l" cx="400" cy="36" r="2" style="animation-delay:.45s"/>
+    <circle class="l" cx="600" cy="36" r="2" style="animation-delay:.75s"/><circle class="l" cx="800" cy="36" r="2" style="animation-delay:1.05s"/>
+    <circle class="l" cx="1000" cy="36" r="2" style="animation-delay:1.35s"/>
+  </g>
+  <use href="#p" fill="#7BE3A6">
+    <animateMotion dur="12s" repeatCount="indefinite" path="M-20 22 H1220"/>
+  </use>
+</svg>

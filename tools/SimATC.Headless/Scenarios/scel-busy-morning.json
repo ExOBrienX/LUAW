@@ -1,0 +1,5 @@
+{
+  "airport": "SCEL", "seed": 7, "hours": 2, "runways": ["35L", "35R"],
+  "departures": [],
+  "flow": { "startS": 0, "intervalS": 60, "maxOnGround": 12 }
+}

@@ -1,0 +1,80 @@
+{
+  "airport": "SCEL",
+  "source": {
+    "title": "AIP-CHILE Volumen I, AD 2 SCEL (AD 2.17, AD 2.18, AD 2.22: uso de pistas y comunicaciones)",
+    "url": "https://aipchile.dgac.gob.cl/dasa/aip_chile_con_contenido/ais/3%20AD%20Parte%203/AD%202a%20Aeropuertos/8%20-AD%202%20SCEL.pdf",
+    "retrieved": "2026-10-30",
+    "amendment": "AMDT NR 63 a 66 (15 MAY 2025 - 27 NOV 2025)"
+  },
+  "additionalSources": [
+    { "title": "AIP-CHILE ENR 1.7-4 (28 NOV 2024): tabla para determinar el nivel de transición con capa de 1000 ft",
+      "url": "https://aipchile.dgac.gob.cl/dasa/aip_chile_con_contenido/ais/2%20ENR%20Parte%202/ENR%201%20Reglas%20Generales/hENR%201.7-1%20Procedimiento%20de%20ajuste%20altimetro.pdf",
+      "retrieved": "2026-10-30" },
+    { "title": "AIP-CHILE SCEL SID 1 RWY 17R/L (ALBAL 7A, NEBEG 7A, ANGOD 8B)",
+      "url": "https://aipchile.dgac.gob.cl/dasa/aip_chile_con_contenido/aipmap/SCEL/SCEL%20SID1.pdf",
+      "retrieved": "2026-10-30" },
+    { "title": "AIP-CHILE SCEL SID 5 RNAV (GELUS 5B, GELUS 3C)",
+      "url": "https://aipchile.dgac.gob.cl/dasa/aip_chile_con_contenido/aipmap/SCEL/SCEL%20SID5.pdf",
+      "retrieved": "2026-10-30" }
+  ],
+  "reviewed": false,
+  "pending": [
+    "Confirmar en el AIP el modo de pistas 35 (runwayModes[1], hoy supuesto como espejo del modo 17).",
+    "Confirmar si 135.4 es frecuencia de Santiago Approach (hoy en unverifiedFrequenciesKhz, no se usa).",
+    "Confirmar las referencias de sección de notes: el texto de uso de pistas apareció en los reglamentos locales (página AD 2 SCEL-9), no necesariamente en AD 2.22.",
+    "Completar sidClimb para las SID que faltan (ANGOD 8B y el resto de cartas SID de SCEL)."
+  ],
+  "transitionAltitudeFt": 10000,
+  "transitionLevelTable": {
+    "source": "AIP-CHILE ENR 1.7-4, 28 NOV 2024 (fila TA 10000 FT, capa de transición de 1000 ft)",
+    "unit": "FL",
+    "notes": "El nivel de transición depende del QNH. Redondear el QNH a 0.1 hPa antes de buscar. Fuera de rango: usar el extremo más cercano y registrarlo en el log.",
+    "byQnhHpa": [
+      { "from": 942.2,  "to": 959.4,  "fl": 130 },
+      { "from": 959.5,  "to": 977.1,  "fl": 125 },
+      { "from": 977.2,  "to": 995.0,  "fl": 120 },
+      { "from": 995.1,  "to": 1013.2, "fl": 115 },
+      { "from": 1013.3, "to": 1031.6, "fl": 110 },
+      { "from": 1031.7, "to": 1050.3, "fl": 105 }
+    ]
+  },
+  "preferredRunways": [ "17L", "17R" ],
+  "preferredMaxTailwindKt": 10,
+  "runwayModes": [
+    { "ends": [ "17L", "17R" ], "departure": [ "17R" ], "arrival": [ "17L" ], "verified": true,
+      "notes": "Modo segregado preferente: 17L llegadas, 17R salidas." },
+    { "ends": [ "35L", "35R" ], "departure": [ "35L" ], "arrival": [ "35R" ], "verified": false,
+      "notes": "Se usa cuando el viento de cola en 17 supera 10 kt. Asignación supuesta como espejo del modo 17 (mismas pistas físicas: 17L/35R y 17R/35L). PENDIENTE de confirmar en el AIP." }
+  ],
+  "positions": [
+    { "role": "Delivery", "callsignEn": "Santiago Delivery", "callsignLocal": "Santiago Autorizaciones", "frequenciesKhz": [ 136700 ],
+      "notes": "Fuera de horario la atiende Control Terrestre 122.2 (AD 2.18). Primer llamado de la salida: letra del ATIS y puesto de estacionamiento." },
+    { "role": "Ground", "callsignEn": "Santiago Ground", "callsignLocal": "Santiago Control Terrestre", "frequenciesKhz": [ 122200, 122600, 122500 ],
+      "notes": "122.2 y 122.6 sector Este; 122.5 sector Oeste, a disposición del ATC (se informa por ATIS)." },
+    { "role": "Tower", "callsignEn": "Santiago Tower", "callsignLocal": "Santiago Torre", "frequenciesKhz": [ 118100, 118350 ],
+      "notes": "118.1 control local primaria, 118.35 secundaria." },
+    { "role": "Approach", "callsignEn": "Santiago Approach", "callsignLocal": "Santiago Aproximación", "frequenciesKhz": [ 119700, 129700 ],
+      "unverifiedFrequenciesKhz": [ 135400 ],
+      "notes": "119.7 y 129.7 confirmadas (también para falla de comunicaciones). Primer contacto con Approach limitado a indicativo y altitud; verificar si en la salida se agrega la SID autorizada. 135.4 sin confirmar: no usar hasta verificarla." }
+  ],
+  "atisArrivalKhz": 132100,
+  "atisDepartureKhz": 132700,
+  "departureHandoffTo": "Approach",
+  "sidClimb": {
+    "notes": "No hay una altitud inicial única: depende de la SID. 'clearedLevel' es lo que el ATC da en la autorización (tope de la SID). SID sin entrada: usar las restricciones de los tramos de la SID en los datos del simulador.",
+    "bySid": {
+      "ALBAL7A": { "runways": [ "17L", "17R" ], "clearedLevel": "FL130", "notes": "Ascenso por R177 hasta FL130 (SID 1)." },
+      "NEBEG7A": { "runways": [ "17L", "17R" ], "clearedLevel": "FL130", "notes": "Ascenso por R177 hasta FL130 (SID 1)." },
+      "GELUS5B": { "runways": [ "17L", "17R" ], "clearedLevel": "FL100", "notes": "TR177° hasta 4000 ft, luego directo LOLAT; cruzar GELUS FL100 o superior (SID 5 RNAV)." },
+      "GELUS3C": { "runways": [ "35L", "35R" ], "clearedLevel": "FL150", "notes": "TR357° hasta 5000 ft, luego directo PARKE; cruzar GELUS FL150 o superior (SID 5 RNAV)." },
+      "ANGOD8B": { "runways": [ "17L", "17R" ], "clearedLevel": null, "notes": "La carta no indica nivel tope. PENDIENTE. Ojo: la carta dice 'left turn' en inglés y 'viraje derecha' en español para RWY 17R." }
+    }
+  },
+  "airspaces": [
+    { "name": "ATZ Santiago", "class": null, "controlledBy": "Tower", "centerLatDeg": -33.394444, "centerLonDeg": -70.793889,
+      "radiusNm": 5, "upperFt": 2000, "upperReference": "AGL" },
+    { "name": "CTR Santiago", "class": "D", "controlledBy": "Tower", "upperFt": 5000, "upperReference": "ALT",
+      "lateralLimitsText": "Desde 331915S/704208W 331915S/703008W 333015S/703008W 333015S/704008W, recta hasta unirse tangencialmente con semicírculo de 4 NM centrado en 334059S/705558W, recta hacia el N hasta unirse tangencialmente con semicírculo de 4 NM centrado en 331015S/704732W, recta hacia el S hasta 331915S/704208W." }
+  ],
+  "notes": "Revisado el 2026-10-30 contra AD 2 SCEL (AD 2.17 y AD 2.18 coinciden), ENR 1.7-4 y las cartas SID 1 y SID 5. Despegues: la autorización (Santiago Autorizaciones) incluye el cambio a Santiago Approach después de la salida; la aeronave se mantiene en Torre hasta cruzar el umbral opuesto. Con viento de cola de hasta 10 kt se usan 17L/17R. Referencias de sección por confirmar (ver pending)."
+}

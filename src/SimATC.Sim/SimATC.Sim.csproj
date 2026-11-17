@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Adaptador de SimConnect: único proyecto que toca SimConnect (ADR-001). -->
+  <PropertyGroup>
+    <!-- El instalador del SDK define MSFS2024_SDK (en este PC: "C:\MSFS 2024 SDK\"). Si el proceso que compila
+         no la ve (terminal abierta antes de instalar el SDK), se usa la ruta por defecto del instalador. -->
+    <MSFS2024_SDK Condition="'$(MSFS2024_SDK)' == ''">C:\MSFS 2024 SDK\</MSFS2024_SDK>
+    <SimConnectSdkDir>$([MSBuild]::EnsureTrailingSlash('$(MSFS2024_SDK)'))SimConnect SDK\lib\</SimConnectSdkDir>
+  </PropertyGroup>
+
+  <Target Name="CheckSimConnectSdk" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(SimConnectSdkDir)managed\Microsoft.FlightSimulator.SimConnect.dll')"
+           Text="No se encontró el SDK de MSFS 2024 en '$(SimConnectSdkDir)'. Instala el SDK o define la variable de entorno MSFS2024_SDK." />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.FlightSimulator.SimConnect">
+      <HintPath>$(SimConnectSdkDir)managed\Microsoft.FlightSimulator.SimConnect.dll</HintPath>
+    </Reference>
+    <!-- DLL nativa que usa el envoltorio; se copia a la salida de quien referencie este proyecto. -->
+    <None Include="$(SimConnectSdkDir)SimConnect.dll" Link="SimConnect.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SimATC.Core\SimATC.Core.csproj" />
+  </ItemGroup>
+</Project>

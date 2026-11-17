@@ -1,0 +1,13 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:app="using:SimATC.App"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SimATC.App.ViewModels"
+        xmlns:views="using:SimATC.App.Views"
+        x:Class="SimATC.App.Views.CompactWindow"
+        x:DataType="vm:CommsViewModel"
+        Width="420" Height="560" MinWidth="320" MinHeight="300"
+        Background="{StaticResource BgPanel}"
+        Title="{app:T 'LUAW · frecuencia'}">
+    <!-- Panel compacto (RF-42c): solo la frecuencia, para dejarlo encima del simulador. -->
+    <views:CommsPanel x:Name="Comms" IsCompact="True" />
+</Window>

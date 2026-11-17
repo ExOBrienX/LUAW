@@ -1,0 +1,130 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:app="using:SimATC.App"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SimATC.App.ViewModels"
+             x:Class="SimATC.App.Views.ChannelView"
+             x:DataType="vm:ChannelViewModel">
+    <!-- El chat de una radio: encabezado (COMn · frecuencia · estación · TX/RX), aviso si el avión no la recibe, menú
+         "Sintonizar" con la recomendada y los mensajes de esa frecuencia (los estilos de las burbujas son de CommsPanel). -->
+    <UserControl.Styles>
+        <Style Selector="Grid.divider.seen">
+            <Setter Property="Opacity" Value="0.3" />
+        </Style>
+    </UserControl.Styles>
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Padding="12,6" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Background="{StaticResource BgRaised}">
+            <StackPanel Spacing="4">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Classes="small" Content="{app:T 'Sintonizar ▾'}" Padding="8,1" VerticalAlignment="Center"
+                            ToolTip.Tip="{app:T 'Elegir la frecuencia de esta radio'}">
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedRight">
+                                <StackPanel Spacing="4" MinWidth="240">
+                                    <TextBlock Classes="label" Text="{Binding Name, StringFormat='Sintonizar en {0}'}" />
+                                    <ItemsControl ItemsSource="{Binding TuneOptions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:TuneOption">
+                                                <Button Content="{Binding Label}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                        Margin="0,2" Click="OnTune" Classes.accent="{Binding Recommended}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock FontSize="11" Foreground="{StaticResource TextFaint}" TextWrapping="Wrap" MaxWidth="260"
+                                               Text="{app:T 'Va a la activa o a la standby según Configuración. «Libre» deja la radio en una frecuencia que nadie usa (el ATC del juego deja de repetir el ATIS).'}" />
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                    <WrapPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="{StaticResource TextMain}" Margin="0,0,8,0" />
+                        <TextBlock Text="{Binding Frequency}" Classes="mono" Foreground="{StaticResource Freq}" Margin="0,0,8,0" />
+                        <TextBlock Text="{Binding Station}" Foreground="{StaticResource TextMain}" Margin="0,0,8,0" />
+                        <TextBlock Text="{Binding State}" FontSize="10.5" FontWeight="Bold" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Ok}" IsVisible="{Binding Transmitting}" />
+                        <TextBlock Text="{Binding State}" FontSize="10.5" FontWeight="Bold" VerticalAlignment="Center"
+                                   Foreground="#8AD8FF" IsVisible="{Binding !Transmitting}" />
+                    </WrapPanel>
+                </DockPanel>
+                <TextBlock Text="{Binding Warning}" IsVisible="{Binding HasWarning}" FontSize="11.5" Foreground="{StaticResource Warn}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <Panel>
+            <TextBlock IsVisible="{Binding IsEmpty}" Margin="24" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"
+                       TextWrapping="Wrap" Foreground="{StaticResource TextFaint}"
+                       Text="{app:T 'Aquí aparece lo que se dice en la frecuencia de esta radio. Usa «Sintonizar ▾» para elegirla.'}" />
+            <ScrollViewer x:Name="HistoryScroll" Padding="12,12">
+                <ItemsControl ItemsSource="{Binding History}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="10" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CommsMessage">
+                            <StackPanel Spacing="10">
+                            <!-- Como en WhatsApp: desde aquí, lo que llegó mientras leías más arriba. -->
+                            <Grid ColumnDefinitions="*,Auto,*" IsVisible="{Binding NewDivider}" Classes.seen="{Binding DividerSeen}" Classes="divider">
+                                <Border Height="1" Background="{StaticResource Accent}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{app:T 'mensajes nuevos'}" FontSize="11" FontWeight="SemiBold" Margin="10,0"
+                                           Foreground="{StaticResource Accent}" />
+                                <Border Grid.Column="2" Height="1" Background="{StaticResource Accent}" VerticalAlignment="Center" />
+                            </Grid>
+                            <Panel Classes="msg">
+                                <!-- ATC, ATIS, IA y avisos: a la izquierda, con su ícono -->
+                                <Border IsVisible="{Binding IsSystem}" HorizontalAlignment="Center" Background="#14FFFFFF" CornerRadius="10" Padding="12,4"
+                                        Margin="24,0">
+                                    <TextBlock TextWrapping="Wrap" TextAlignment="Center" FontSize="12" Foreground="{StaticResource TextDim}">
+                                        <Run Text="{Binding Text}" /><Run Text="  " /><Run Text="{Binding Time}" FontFamily="{StaticResource Mono}" FontSize="10"
+                                                                                               Foreground="{StaticResource TextFaint}" />
+                                    </TextBlock>
+                                </Border>
+                                <Grid ColumnDefinitions="Auto,*,48" IsVisible="{Binding IsLeft}">
+                                    <Border Classes="avatar" Background="{Binding AvatarBrush}" Margin="0,0,8,0">
+                                        <TextBlock Text="{Binding Avatar}" />
+                                    </Border>
+                                    <Border Grid.Column="1" Classes="bubble" Classes.atc="{Binding IsAtc}" Classes.forme="{Binding ForMe}" HorizontalAlignment="Left">
+                                        <StackPanel Spacing="3">
+                                            <DockPanel>
+                                                <Border DockPanel.Dock="Right" Classes="forme-tag" IsVisible="{Binding ForMe}" Margin="8,0,0,0">
+                                                    <TextBlock Text="{app:T 'PARA TI'}" />
+                                                </Border>
+                                                <TextBlock Text="{Binding Who}" Classes="who" Classes.atc="{Binding IsAtc}" FontSize="11.5"
+                                                           FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            </DockPanel>
+                                            <TextBlock Classes="msgtext" Text="{Binding Text}" />
+                                            <TextBlock Text="{Binding Time}" Classes="mono" FontSize="10" Foreground="{StaticResource TextFaint}"
+                                                       HorizontalAlignment="Right" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                                <!-- El piloto: a la derecha -->
+                                <Grid ColumnDefinitions="48,*,Auto" IsVisible="{Binding IsPilot}">
+                                    <Border Grid.Column="1" Classes="bubble pilot" HorizontalAlignment="Right">
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Classes="msgtext" Text="{Binding Text}" />
+                                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                                <TextBlock Text="{app:T '✓ colación correcta'}" FontSize="10" Foreground="{StaticResource Ok}" IsVisible="{Binding Confirmed}" />
+                                                <TextBlock Text="{Binding Time}" Classes="mono" FontSize="10" Foreground="{StaticResource TextFaint}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="2" Classes="avatar" Background="{Binding AvatarBrush}" Margin="8,0,0,0">
+                                        <TextBlock Text="{Binding Avatar}" />
+                                    </Border>
+                                </Grid>
+                            </Panel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            <!-- Leyendo más arriba: cuántos llegaron (y si alguno es para ti); clic baja al final. -->
+            <Button x:Name="NewPill" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,10"
+                    Padding="12,5" CornerRadius="14" Background="{StaticResource Accent}" Click="OnNewPill"
+                    ToolTip.Tip="{app:T 'Ir a los mensajes nuevos'}">
+                <TextBlock x:Name="NewPillText" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BgDeep}" />
+            </Button>
+        </Panel>
+    </DockPanel>
+</UserControl>

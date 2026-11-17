@@ -1,0 +1,242 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:app="using:SimATC.App"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SimATC.App.ViewModels"
+             xmlns:radar="using:SimATC.App.Radar"
+             xmlns:views="using:SimATC.App.Views"
+             x:Class="SimATC.App.Views.RadarPanel"
+             x:DataType="vm:MainWindowViewModel">
+    <!--
+    El radar con sus capas, la ficha del avión seleccionado y el aviso de "siguiendo". Es uno solo: vive en la ventana
+    principal o en su propia ventana ("Ventana aparte"), nunca en las dos (un solo radar dibujando).
+    -->
+    <UserControl.Styles>
+        <Style Selector="Border.tile">
+            <Setter Property="Background" Value="{StaticResource BgRaised}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+        <Style Selector="Border.tile TextBlock.k">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+        </Style>
+        <Style Selector="Border.tile TextBlock.v">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <!-- La autorización en la tarjeta del ATC (ADR-115): una línea; "Detalles" la despliega. -->
+        <Style Selector="views|ClearanceView.brief :is(Control).details">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="views|ClearanceView.brief.expanded :is(Control).details">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+    </UserControl.Styles>
+    <Panel Background="{StaticResource BgRadar}">
+        <radar:RadarView x:Name="Radar" Airport="{Binding Airport}" UserState="{Binding UserState}" TransitionAltitudeFt="{Binding TransitionAltitudeFt}" Traffic="{Binding Traffic}"
+                         SelectedId="{Binding SelectedId}" FollowSelected="{Binding FollowSelected}"
+                         SelectedRoute="{Binding SelectedRoute}" SelectedFlight="{Binding SelectedFlight}" UserRoute="{Binding UserRoute}"
+                         UserHoldShort="{Binding UserHoldShort}" PlanRoute="{Binding PlanRoute}"
+                         ShowStands="{Binding ShowStands}" ShowPlan="{Binding ShowPlan}" Procedures="{Binding ProcedureLines}" OtherAirports="{Binding PlanAirports}" MaxFps="{Binding RadarFpsInt}" ArrivalRunways="{Binding RadarArrivalRunways}" DepartureRunways="{Binding RadarDepartureRunways}" FlowArrows="{Binding RadarFlowArrows}"
+                         Nav="{Binding Nav}" Airways="{Binding AirwayDb}" WorldAirports="{Binding WorldAirportsData}"
+                         ShowFixes="{Binding ShowFixes}" ShowNavaids="{Binding ShowNavaids}" ShowAirways="{Binding ShowAirways}" ShowAirports="{Binding ShowWorldAirports}" />
+        <!-- Capas del radar en un panel desplegable (ADR-083): solo los botones a la vista, para que no se encimen. -->
+        <Border Classes="chip" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12" Opacity="0.95">
+            <WrapPanel Orientation="Horizontal">
+                <Button Classes="small" Margin="0,0,8,0" ToolTip.Tip="{app:T 'Qué se muestra en el radar'}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Path Data="M12,4 L20,8 L12,12 L4,8 Z M4,12 L12,16 L20,12 M4,16 L12,20 L20,16" Stroke="{Binding $parent[Button].Foreground}"
+                              StrokeThickness="1.6" StrokeJoin="Round" StrokeLineCap="Round" Width="15" Height="15" Stretch="Uniform" />
+                        <TextBlock Text="{app:T 'Capas'}" />
+                    </StackPanel>
+                    <Button.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedLeft">
+                            <StackPanel Spacing="6" Margin="4" MinWidth="220">
+                                <TextBlock Text="{app:T 'Capas del radar'}" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                <CheckBox Content="{app:T 'Puestos'}" IsChecked="{Binding ShowStands}" />
+                                <CheckBox Content="{app:T 'Plan y procedimientos'}" IsChecked="{Binding ShowPlan}" />
+                                <CheckBox Content="{app:T 'Fijos'}" IsChecked="{Binding ShowFixes}" ToolTip.Tip="{app:T 'Waypoints del simulador (de cerca)'}" />
+                                <CheckBox Content="{app:T 'VOR/NDB'}" IsChecked="{Binding ShowNavaids}" />
+                                <CheckBox Content="{app:T 'Aerovías'}" IsChecked="{Binding ShowAirways}" ToolTip.Tip="{app:T 'Se cargan del simulador al mirar una zona y quedan guardadas'}" />
+                                <CheckBox Content="{app:T 'Aeropuertos'}" IsChecked="{Binding ShowWorldAirports}" />
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+                <Button Classes="small" Content="{app:T 'Seguirme'}" Command="{Binding FollowMeCommand}" Margin="0,0,8,0"
+                        ToolTip.Tip="{app:T 'Centra el radar en tu avión y lo sigue (también: clic sobre tu avión)'}" />
+                <Button Classes="small" Content="{app:T 'Ver ruta'}" Command="{Binding ShowPlanOnRadarCommand}" IsVisible="{Binding HasPlan}" Margin="0,0,8,0" />
+                <Button Classes="small" Content="{app:T 'Ventana aparte ⧉'}" Command="{Binding OpenRadarWindowCommand}" IsVisible="{Binding !RadarDetached}"
+                        ToolTip.Tip="{app:T 'Lleva el radar a su propia ventana (por ejemplo, a otro monitor); la principal queda con las comunicaciones'}" />
+            </WrapPanel>
+        </Border>
+        <!-- Ficha del avión: clic en un avión del radar (datos en vivo). Se mueve arrastrándola por el título. -->
+        <Border x:Name="Card" Classes="card" Width="360" ZIndex="10" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Padding="12,10"
+                IsVisible="{Binding ShowInspector, FallbackValue=False}" BoxShadow="0 6 24 0 #80000000">
+            <StackPanel Spacing="8">
+                <DockPanel x:Name="CardHandle" Background="Transparent" Cursor="SizeAll" ToolTip.Tip="{app:T 'Arrastra para mover la ficha'}">
+                    <Button DockPanel.Dock="Right" Content="✕" Command="{Binding CloseInspectorCommand}" Padding="6,2" VerticalAlignment="Top"
+                            ToolTip.Tip="{app:T 'Cierra la ficha (si lo sigues, lo sigue igual)'}" />
+                    <StackPanel Spacing="1">
+                        <TextBlock Text="{Binding InspectorTitle}" Foreground="{StaticResource Accent}" FontWeight="SemiBold" FontSize="16" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding InspectorSubtitle}" Foreground="{StaticResource TextDim}" FontSize="11" TextWrapping="Wrap" />
+                    </StackPanel>
+                </DockPanel>
+                <!-- Lo importante, en grande -->
+                <Grid ColumnDefinitions="*,*,*">
+                    <Border Classes="tile">
+                        <StackPanel>
+                            <TextBlock Classes="k" Text="{app:T 'Fase'}" />
+                            <TextBlock Classes="v" Text="{Binding InspectorPhase}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Classes="tile">
+                        <StackPanel>
+                            <TextBlock Classes="k" Text="{app:T 'Altitud'}" />
+                            <TextBlock Classes="v" Text="{Binding InspectorAltitude}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2" Classes="tile" Margin="0">
+                        <StackPanel>
+                            <TextBlock Classes="k" Text="{app:T 'Velocidad'}" />
+                            <TextBlock Classes="v" Text="{Binding InspectorSpeed}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                <!-- A quién espera: clic lo selecciona -->
+                <Button Classes="small" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="8,4"
+                        IsVisible="{Binding InspectorWaitId, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}"
+                        Command="{Binding SelectAircraftCommand}" CommandParameter="{Binding InspectorWaitId}"
+                        ToolTip.Tip="{app:T 'Selecciona ese avión'}">
+                    <TextBlock TextWrapping="Wrap"><Run Text="⏸ " /><Run Text="{Binding InspectorWait}" /><Run Text="  ›" Foreground="{StaticResource Accent}" /></TextBlock>
+                </Button>
+                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Warn}" FontSize="12.5"
+                           IsVisible="{Binding InspectorWaitPlain, FallbackValue=False}" Text="{Binding InspectorWait, StringFormat='⏸ {0}'}" />
+                <DockPanel>
+                    <ToggleButton DockPanel.Dock="Right" Classes="small" IsChecked="{Binding InspectorMore}" Padding="8,2">
+                        <Panel>
+                            <TextBlock Text="{app:T 'Más datos ▾'}" IsVisible="{Binding !InspectorMore, FallbackValue=True}" FontSize="11.5" />
+                            <TextBlock Text="{app:T 'Menos ▴'}" IsVisible="{Binding InspectorMore, FallbackValue=False}" FontSize="11.5" />
+                        </Panel>
+                    </ToggleButton>
+                    <ToggleButton Content="{app:T 'Seguir'}" IsChecked="{Binding FollowSelected}" HorizontalAlignment="Left" Padding="10,3"
+                                  ToolTip.Tip="{app:T 'El radar lo sigue (arrastrar el radar deja de seguir)'}" />
+                </DockPanel>
+                <!-- Detalle por grupos (Ahora, Llegada, Ruta, Avión), con scroll para que la ficha no tape el radar -->
+                <ScrollViewer MaxHeight="460" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding InspectorMore, FallbackValue=False}">
+                    <ItemsControl ItemsSource="{Binding InspectorRows}" Margin="0,0,6,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:InspectorRow">
+                                <StackPanel>
+                                    <StackPanel IsVisible="{Binding HasGroup}" Margin="0,8,0,4" Spacing="4">
+                                        <TextBlock Text="{Binding Group}" Foreground="{StaticResource Accent}" FontSize="11" FontWeight="SemiBold" />
+                                        <Border Height="1" Background="{StaticResource TextDim}" Opacity="0.25" />
+                                    </StackPanel>
+                                    <Grid ColumnDefinitions="104,*" Margin="0,3">
+                                        <TextBlock Text="{Binding Label}" Foreground="{StaticResource TextDim}" FontSize="11.5" TextWrapping="Wrap" Margin="0,1,8,0" />
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding Value}" Foreground="{StaticResource TextBody}" FontSize="12.5" TextWrapping="Wrap" />
+                                    </Grid>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+        </Border>
+        <!--
+        Lo del ATC sobre el radar, abajo a la derecha (ADR-107): la autorización (squawk), las instrucciones vigentes y "Qué
+        decir ahora". Así el chat de la derecha queda entero. Se arrastra por el título y se pliega.
+        -->
+        <Border x:Name="AtcCard" Classes="card" Width="360" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12"
+                Padding="0" Opacity="0.97" DataContext="{Binding Comms}" x:DataType="vm:CommsViewModel"
+                IsVisible="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).ShowAtcCard, FallbackValue=False}">
+            <StackPanel>
+                <DockPanel x:Name="AtcCardHandle" Background="Transparent" Cursor="SizeAll">
+                    <ToggleButton DockPanel.Dock="Right" Classes="small" Margin="0,6,8,6" Padding="6,0"
+                                  IsChecked="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).AtcCardCollapsed, FallbackValue=False}"
+                                  ToolTip.Tip="{app:T 'Pliega o despliega'}">
+                        <Panel>
+                            <TextBlock Text="▾" IsVisible="{Binding !$parent[ToggleButton].IsChecked}" />
+                            <TextBlock Text="▴" IsVisible="{Binding $parent[ToggleButton].IsChecked}" />
+                        </Panel>
+                    </ToggleButton>
+                    <TextBlock Classes="label" Text="{app:T 'ATC · arrastra para mover'}" Margin="12,8" VerticalAlignment="Center" />
+                </DockPanel>
+                <StackPanel Spacing="8" Margin="12,0,12,12"
+                            IsVisible="{Binding !$parent[UserControl].((vm:MainWindowViewModel)DataContext).AtcCardCollapsed, FallbackValue=True}">
+                    <!-- La salida que recomienda LUAW cuando difiere del plan (ADR-113). -->
+                    <Border Background="#1FE8EDF3" CornerRadius="6" Padding="10,8"
+                            IsVisible="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).ShowDepartureRecommendation, FallbackValue=False}">
+                        <StackPanel Spacing="6">
+                            <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource TextMain}"
+                                       Text="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).DepartureRecommendationText, FallbackValue=''}" />
+                            <Button Classes="small primary" Content="{app:T 'Usar la de LUAW'}" HorizontalAlignment="Left" Padding="10,2"
+                                    Command="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).UseAtcDepartureCommand}"
+                                    ToolTip.Tip="{app:T 'El ATC te dará esta pista y SID en la autorización y el radar la dibuja como tu SID'}" />
+                        </StackPanel>
+                    </Border>
+                    <Border IsVisible="{Binding ClearanceOnGround}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="0,0,0,8">
+                        <views:ClearanceView Classes="brief" Classes.expanded="{Binding ClearanceExpanded}" />
+                    </Border>
+                    <ScrollViewer MaxHeight="340" HorizontalScrollBarVisibility="Disabled">
+                        <ScrollViewer.Styles>
+                            <Style Selector="Panel.spoken">
+                                <Setter Property="IsVisible" Value="False" />
+                            </Style>
+                            <Style Selector="Panel.wideonly">
+                                <Setter Property="IsVisible" Value="False" />
+                            </Style>
+                            <Style Selector="ScrollViewer.suggestions">
+                                <Setter Property="MaxHeight" Value="104" />
+                            </Style>
+                        </ScrollViewer.Styles>
+                        <views:StepView />
+                    </ScrollViewer>
+                </StackPanel>
+                <!-- Plegada: solo el paso, en una línea. -->
+                <TextBlock Text="{Binding StepText}" Margin="12,0,12,10" TextWrapping="Wrap" MaxLines="2" Foreground="{StaticResource TextBody}" FontSize="12.5"
+                           IsVisible="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).AtcCardCollapsed, FallbackValue=False}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Leyenda de colores (ADR-107), abajo a la izquierda; se pliega. -->
+        <Border Classes="chip" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12" Opacity="0.95" Padding="10,6">
+            <StackPanel Spacing="4">
+                <ToggleButton Classes="small" Content="{app:T 'Leyenda'}" Padding="8,1" HorizontalAlignment="Left"
+                              IsChecked="{Binding ShowRadarLegend}" ToolTip.Tip="{app:T 'Qué significa cada color del radar'}" />
+                <ItemsControl IsVisible="{Binding ShowRadarLegend}" ItemsSource="{Binding RadarLegend}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:LegendItem">
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,1">
+                                <Border Width="18" Height="4" CornerRadius="2" Background="{Binding Brush}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Text}" FontSize="11.5" Foreground="{StaticResource TextBody}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
+        <!-- Aviso de unos segundos (ADR-107): cambios de pista, motor y al aire, cambio de pista de salida. -->
+        <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,56,0,0" Padding="16,10" CornerRadius="8"
+                Background="#E61B2433" BorderBrush="{StaticResource Accent}" BorderThickness="1" MaxWidth="520"
+                IsVisible="{Binding ToastText, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <TextBlock Text="{Binding ToastText}" Foreground="{StaticResource TextMain}" TextWrapping="Wrap" FontSize="13.5" FontWeight="SemiBold" />
+        </Border>
+
+        <!-- Siguiendo con la ficha cerrada: a quién, ver la ficha o dejar de seguir. -->
+        <Border Classes="chip" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Opacity="0.95"
+                IsVisible="{Binding ShowFollowChip, FallbackValue=False}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TextBody}">
+                    <Run Text="{app:T 'Siguiendo '}" /><Run Text="{Binding InspectorTitle}" Foreground="{StaticResource Accent}" />
+                </TextBlock>
+                <Button Classes="small" Content="{app:T 'Ver datos'}" Command="{Binding OpenInspectorCommand}" Padding="8,1" />
+                <Button Classes="small" Content="{app:T 'Dejar de seguir'}" Command="{Binding StopFollowingCommand}" Padding="8,1" />
+            </StackPanel>
+        </Border>
+    </Panel>
+</UserControl>

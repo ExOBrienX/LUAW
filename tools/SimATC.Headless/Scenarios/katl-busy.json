@@ -1,0 +1,7 @@
+{
+  "airport": "KATL", "seed": 5, "hours": 1, "runways": ["auto"],
+  "departures": [],
+  "windFromDeg": 270, "windKt": 8,
+  "flow": { "startS": 0, "intervalS": 80, "maxOnGround": 20 },
+  "arrivals": { "startS": 30, "intervalS": 80, "runways": ["auto"] }
+}

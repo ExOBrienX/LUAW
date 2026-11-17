@@ -1,0 +1,6 @@
+{
+  "airport": "RKSI", "seed": 7, "hours": 1.5, "runways": ["auto"],
+  "departures": [],
+  "flow": { "startS": 0, "intervalS": 80, "maxOnGround": 18 },
+  "arrivals": { "startS": 30, "intervalS": 80, "runways": ["auto"] }
+}

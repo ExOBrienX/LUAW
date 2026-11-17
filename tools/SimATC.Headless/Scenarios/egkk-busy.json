@@ -1,0 +1,23 @@
+{
+  "airport": "EGKK",
+  "seed": 1,
+  "hours": 1,
+  "runways": [
+    "auto"
+  ],
+  "departures": [],
+  "windFromDeg": 78,
+  "windKt": 8,
+  "flow": {
+    "startS": 0,
+    "intervalS": 257,
+    "maxOnGround": 16
+  },
+  "arrivals": {
+    "startS": 30,
+    "intervalS": 257,
+    "runways": [
+      "auto"
+    ]
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "language": "faa-en",
+  "source": "FAA Order JO 7110.65BB Air Traffic Control (faa.gov, versión HTML consultada el 2026-11-08). Capa sobre icao-en: solo las frases que cambian en EE. UU.; las demás se toman de icao-en (ADR-099).",
+  "templates": {
+    "atc.taxi": {
+      "ref": "JO 7110.65BB 3-7-2 ('RUNWAY (number), TAXI VIA (route as necessary)')",
+      "variants": [ "{callsign}, runway {runway}, taxi via {route}" ]
+    },
+    "atc.taxi_no_route": {
+      "ref": "JO 7110.65BB 3-7-2 (sin ruta: el tramo se omite)",
+      "variants": [ "{callsign}, runway {runway}, taxi" ]
+    },
+    "pilot.readback_taxi": {
+      "ref": "JO 7110.65BB 3-7-2 (colación de la pista y la ruta)",
+      "variants": [ "Runway {runway}, taxi via {route}, {callsign}" ]
+    },
+    "atc.cleared_for_takeoff": {
+      "ref": "JO 7110.65BB 3-9-10 ('RUNWAY (number), WIND (surface wind…). CLEARED FOR TAKEOFF')",
+      "variants": [ "{callsign}, runway {runway}, wind {wind}, cleared for takeoff" ]
+    },
+    "atc.cleared_for_takeoff_no_wind": {
+      "ref": "JO 7110.65BB 3-9-10 ('RUNWAY (number), CLEARED FOR TAKEOFF')",
+      "variants": [ "{callsign}, runway {runway}, cleared for takeoff" ]
+    },
+    "pilot.readback_takeoff": {
+      "ref": "JO 7110.65BB 3-9-10",
+      "variants": [ "Runway {runway}, cleared for takeoff, {callsign}" ]
+    },
+    "atc.cleared_to_land": {
+      "ref": "JO 7110.65BB 3-10-5 ('RUNWAY (number) CLEARED TO LAND'), con el viento antes",
+      "variants": [ "{callsign}, wind {wind}, runway {runway} cleared to land" ]
+    },
+    "atc.climb": {
+      "ref": "JO 7110.65BB 4-5-7 ('CLIMB/DESCEND AND MAINTAIN (altitude)')",
+      "variants": [ "{callsign}, climb and maintain {level}" ]
+    },
+    "pilot.readback_climb": {
+      "ref": "JO 7110.65BB 4-5-7",
+      "variants": [ "Climb and maintain {level}, {callsign}" ]
+    },
+    "atc.descend": {
+      "ref": "JO 7110.65BB 4-5-7 ('CLIMB/DESCEND AND MAINTAIN (altitude)')",
+      "variants": [ "{callsign}, descend and maintain {level}" ]
+    },
+    "pilot.readback_descend": {
+      "ref": "JO 7110.65BB 4-5-7",
+      "variants": [ "Descend and maintain {level}, {callsign}" ]
+    },
+    "atc.descend_qnh": {
+      "ref": "JO 7110.65BB 4-5-7 y 2-7-1 ('ALTIMETER (setting)', en pulgadas)",
+      "variants": [ "{callsign}, descend and maintain {level}, altimeter {altimeter}" ]
+    },
+    "pilot.readback_descend_qnh": {
+      "ref": "JO 7110.65BB 4-5-7 y 2-7-1",
+      "variants": [ "Descend and maintain {level}, altimeter {altimeter}, {callsign}" ]
+    },
+    "atc.descend_cross_above": {
+      "ref": "JO 7110.65BB 4-5-7 ('CROSS (fix) AT OR ABOVE (altitude)' y 'DESCEND AND MAINTAIN')",
+      "variants": [ "{callsign}, cross {fix} at or above {cross_level}, descend and maintain {level}" ]
+    },
+    "pilot.readback_descend_cross_above": {
+      "ref": "JO 7110.65BB 4-5-7",
+      "variants": [ "Cross {fix} at or above {cross_level}, descend and maintain {level}, {callsign}" ]
+    },
+    "atc.expect_descent_after": {
+      "ref": "JO 7110.65BB 4-5-7 ('EXPECT HIGHER/LOWER … AT (fix)')",
+      "variants": [ "{callsign}, maintain {level}, expect lower at {fix}" ]
+    },
+    "atc.cleared_approach": {
+      "ref": "JO 7110.65BB 4-8-1 (ejemplo 'Cleared ILS Runway 27 Approach')",
+      "variants": [ "{callsign}, cleared {approach} runway {runway} approach" ]
+    },
+    "atc.cleared_star_descend_via": {
+      "ref": "JO 7110.65BB 4-5-7 ('DESCEND VIA (STAR name and number)'); ADR-101",
+      "variants": [ "{callsign}, descend via {star}" ]
+    },
+    "pilot.readback_cleared_star_descend_via": {
+      "ref": "JO 7110.65BB 4-5-7",
+      "variants": [ "Descend via {star}, {callsign}" ]
+    },
+    "pilot.readback_cleared_approach": {
+      "ref": "JO 7110.65BB 4-8-1",
+      "variants": [ "Cleared {approach} runway {runway} approach, {callsign}" ]
+    },
+    "atc.identified": {
+      "ref": "JO 7110.65BB 5-3 (identificación radar: 'RADAR CONTACT') y 4-5-7 ('CLIMB AND MAINTAIN'); VERIFICAR numeración; ADR-124",
+      "variants": [ "{callsign}, {station}, radar contact, climb and maintain {level}" ]
+    },
+    "atc.identified_via_sid": {
+      "ref": "JO 7110.65BB 5-3 ('RADAR CONTACT') y 4-5-7; ADR-124",
+      "variants": [ "{callsign}, {station}, radar contact, climb and maintain {level}" ]
+    },
+    "atc.identified_no_level": {
+      "ref": "JO 7110.65BB 5-3 ('RADAR CONTACT'); ADR-124",
+      "variants": [ "{callsign}, {station}, radar contact" ]
+    },
+    "atc.route_direct": {
+      "ref": "JO 7110.65BB 4-2-5 ('PROCEED DIRECT (fix)'); VERIFICAR numeración; ADR-124",
+      "variants": [ "{callsign}, proceed direct {fix}" ]
+    },
+    "atc.direct_maintain": {
+      "ref": "JO 7110.65BB 4-2-5 ('PROCEED DIRECT (fix)') y 4-5-7 ('MAINTAIN'); ADR-124",
+      "variants": [ "{callsign}, proceed direct {fix}, maintain {level}" ]
+    },
+    "atc.vector_intercept_cleared": {
+      "ref": "JO 7110.65BB 5-9-4 (posición, rumbo, altitud hasta establecerse y autorización: '... TURN LEFT HEADING 340, MAINTAIN 2,000 UNTIL ESTABLISHED ON THE LOCALIZER, CLEARED ILS RUNWAY 36 APPROACH'); ADR-124",
+      "variants": [ "{callsign}, {distance} miles from the airport, turn {direction} heading {heading}, maintain {level} until established, cleared {approach} runway {runway} approach" ]
+    },
+    "pilot.readback_vector_intercept_cleared": {
+      "ref": "JO 7110.65BB 5-9-4; ADR-124",
+      "variants": [ "Turn {direction} heading {heading}, maintain {level} until established, cleared {approach} runway {runway} approach, {callsign}" ]
+    }
+  }
+}

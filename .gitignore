@@ -1,0 +1,14 @@
+bin/
+obj/
+.vs/
+*.user
+BenchmarkDotNet.Artifacts/
+TestResults/
+graphify-out/
+
+# Métricas del Headless
+headless-*.json
+ui-shots*/
+
+# Paquetes de tools/package.ps1
+artifacts/

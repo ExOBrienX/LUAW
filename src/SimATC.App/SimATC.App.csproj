@@ -1,0 +1,42 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ApplicationIcon>Assets\simatc.ico</ApplicationIcon>
+    <!-- El ejecutable que ve el usuario: LUAW.exe (el espacio de nombres sigue siendo SimATC.App). -->
+    <AssemblyName>LUAW</AssemblyName>
+    <RootNamespace>SimATC.App</RootNamespace>
+    <OutputType>WinExe</OutputType>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Datos del repo (listas de rutas, etc.) junto al ejecutable. -->
+    <None Include="..\..\data\**\*.json" Link="data\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\vatspy\*.*" Link="data\vatspy\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\world\*.csv;..\..\data\world\*.gz;..\..\data\world\*.md" Link="data\world\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SimATC.Core\SimATC.Core.csproj" />
+    <ProjectReference Include="..\SimATC.Sim\SimATC.Sim.csproj" />
+    <ProjectReference Include="..\SimATC.Voice\SimATC.Voice.csproj" />
+    <!-- Voz Kokoro (ADR-103): su ejecutable va junto a la app; se usa como proceso aparte (no se carga en la app). -->
+    <ProjectReference Include="..\SimATC.KokoroHost\SimATC.KokoroHost.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\simatc.ico" />
+    <AvaloniaResource Include="Assets\simatc-64.png" />
+    <AvaloniaResource Include="Assets\luaw-logo.webp" />
+  </ItemGroup>
+</Project>

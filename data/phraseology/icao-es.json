@@ -1,0 +1,771 @@
+{
+  "language": "es",
+  "source": "OACI Doc 4444 (PANS-ATM) en español, 15.ª ed. 2007 con enmiendas, cap. 12 \"Fraseología\" (texto bilingüe español/inglés); Anexo 10 Vol. II (es) para palabras de procedimiento (copia de ANAC Argentina, 2016); AIP-CHILE AD 2 SCEL. Revisado por Claude el 2026-10-31. Las marcadas \"no oficial\" siguen la regla de §8.1.",
+  "notes": "Mismas plantillas (mismos identificadores y datos) que icao-en.json. La telefonía de la aerolínea no se traduce. Los valores (pista, nivel, frecuencia, transponder) son siempre exactos.",
+  "templates": {
+    "atc.clearance": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.2.1 b) \"(distintivo) AUTORIZADO A\", 12.3.1.2 \"ASCIENDA A (nivel)\", 12.4.3 \"TRANSPONDER (código)\"; SID como \"SALIDA (designador)\"",
+      "variants": [ "{callsign}, autorizado a {destination}, salida {sid}, pista {runway}, ascienda a {level}, transponder {squawk}{after_departure}", "{callsign}, {station}, autorizado a {destination}, salida {sid}, pista {runway}, ascienda a {level}, transponder {squawk}{after_departure}" ]
+    },
+    "atc.clearance_no_level": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "{callsign}, autorizado a {destination}, salida {sid}, pista {runway}, transponder {squawk}{after_departure}" ]
+    },
+    "atc.clearance_no_sid": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "{callsign}, autorizado a {destination}, pista {runway}, ascienda a {level}, transponder {squawk}{after_departure}" ]
+    },
+    "atc.clearance_no_sid_no_level": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "{callsign}, autorizado a {destination}, pista {runway}, transponder {squawk}{after_departure}" ]
+    },
+    "atc.clearance.after_departure": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.1.4 a) \"CONTACTE (dependencia) (frecuencia)\"",
+      "variants": [ ", después de la salida contacte {next_station} {frequency}" ]
+    },
+    "atc.readback_correct": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.10 k) \"CORRECTO\"",
+      "variants": [ "{callsign}, colación correcta", "{callsign}, correcto" ]
+    },
+    "atc.startup_approved": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.3 c) \"ENCENDIDO DE MOTORES APROBADO\"",
+      "variants": [ "{callsign}, {station}, encendido de motores aprobado", "{callsign}, encendido de motores aprobado" ]
+    },
+    "atc.pushback_approved": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.4 b) \"RETROCESO APROBADO\"",
+      "variants": [ "{callsign}, retroceso aprobado", "{callsign}, {station}, retroceso aprobado" ]
+    },
+    "atc.pushback_delay": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.4 e) \"PREVEA (número) MINUTOS DE DEMORA DEBIDO A (razón)\"",
+      "variants": [ "{callsign}, negativo, prevea {minutes} minutos de demora debido a tránsito" ]
+    },
+    "atc.taxi": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 e) \"RUEDE A PUNTO DE ESPERA [PISTA (número)] VÍA (trayecto)\"",
+      "variants": [ "{callsign}, ruede a punto de espera pista {runway} vía {route}", "{callsign}, pista {runway}, ruede a punto de espera vía {route}" ]
+    },
+    "atc.taxi_no_route": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 c)",
+      "variants": [ "{callsign}, ruede a punto de espera pista {runway}" ]
+    },
+    "atc.hold_short": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.8 d) \"MANTENGA FUERA DE (posición)\", 12.3.4.7 c) \"MANTENGA FUERA DE PISTA (número)\"",
+      "variants": [ "{callsign}, mantenga fuera de pista {runway}" ]
+    },
+    "atc.hold_short_queue": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12 12.3.4.8 d), con el aviso de CAP 413 §4.25 (\"one aircraft to depart before you\") en español: LUAW (no oficial, §8.1)",
+      "variants": [ "{callsign}, mantenga fuera de pista {runway}, {aircraft} salen antes que usted" ]
+    },
+    "atc.hold_short_traffic": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12 12.3.4.8 d) con el tránsito en la pista: LUAW (no oficial, §8.1)",
+      "variants": [ "{callsign}, mantenga fuera de pista {runway}, tránsito {traffic} en la pista", "{callsign}, mantenga fuera de pista {runway}, {traffic} en la pista" ]
+    },
+    "atc.line_up_behind": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.10 i) \"(condición) RUEDE A POSICIÓN (reiteración de la condición)\", 12.2.7 (\"DETRÁS DEL DC9 EN FINAL CORTA, RUEDE A POSICIÓN DETRÁS\")",
+      "variants": [ "{callsign}, detrás del {traffic} que sale, ruede a posición pista {runway} detrás" ]
+    },
+    "atc.line_up_behind_landing": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.2.7 (\"DETRÁS DEL DC9 EN FINAL CORTA, RUEDE A POSICIÓN DETRÁS\"), 12.3.4.10 i); ADR-095",
+      "variants": [ "{callsign}, detrás del {traffic} que aterriza, ruede a posición pista {runway} detrás" ]
+    },
+    "atc.hold_position": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.8 b) \"MANTENGA POSICIÓN\"",
+      "variants": [ "{callsign}, mantenga posición" ]
+    },
+    "atc.contact": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.1.4 a) \"CONTACTE (dependencia) (frecuencia)\"",
+      "variants": [ "{callsign}, contacte {next_station} {frequency}", "{callsign}, contacte con {next_station} en {frequency}", "{callsign}, contacte {next_station} {frequency}, hasta luego" ]
+    },
+    "atc.line_up_and_wait": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.10 f) \"RUEDE A POSICIÓN [Y MANTENGA]\", g) \"RUEDE A POSICIÓN EN PISTA (número)\"",
+      "variants": [ "{callsign}, pista {runway}, ruede a posición y mantenga", "{callsign}, ruede a posición y mantenga pista {runway}" ]
+    },
+    "atc.cleared_for_takeoff": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.11 a) \"PISTA (número) AUTORIZADO A DESPEGAR\"; viento como en 12.3.4.7 d)",
+      "variants": [ "{callsign}, viento {wind}, pista {runway}, autorizado a despegar", "{callsign}, pista {runway}, autorizado a despegar, viento {wind}" ]
+    },
+    "atc.cleared_for_takeoff_no_wind": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.11 a)",
+      "variants": [ "{callsign}, pista {runway}, autorizado a despegar" ]
+    },
+    "atc.identified": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.4.1.1 \"IDENTIFICADO\"; 12.3.1.2 \"ASCIENDA A (nivel)\"",
+      "variants": [ "{callsign}, {station}, identificado, ascienda a {level}", "{callsign}, identificado, ascienda a {level}" ]
+    },
+    "atc.identified_no_level": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.4.1.1 \"IDENTIFICADO\"",
+      "variants": [ "{callsign}, {station}, identificado" ]
+    },
+    "atc.give_way": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 t) \"CEDA PASO A (descripción y posición de otras aeronaves)\"",
+      "variants": [ "{callsign}, ceda paso al {traffic} que pasa {direction}" ]
+    },
+    "atc.give_way_situation": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 t)",
+      "variants": [ "{callsign}, ceda paso al {traffic} {situation}" ]
+    },
+    "atc.caution_slower": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 cc) \"[PRECAUCIÓN] RUEDE MÁS LENTO [motivo]\"",
+      "variants": [ "{callsign}, precaución, {traffic} adelante, ruede más lento", "{callsign}, precaución, ruede más lento, {traffic} adelante" ]
+    },
+    "atc.follow": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 x) \"SIGA (descripción de otra aeronave)\"",
+      "variants": [ "{callsign}, siga al {traffic} adelante" ]
+    },
+    "atc.continue_taxi": {
+      "ref": "LUAW (no oficial, §8.1): \"CONTINÚE\" con el rodaje ya autorizado; \"SIGA\" de Doc 4444 12.3.4.7 x)",
+      "variants": [ "{callsign}, continúe rodaje", "{callsign}, continúe el rodaje" ]
+    },
+    "atc.continue_taxi_follow": {
+      "ref": "LUAW (no oficial, §8.1): \"CONTINÚE\" con el rodaje ya autorizado; \"SIGA\" de Doc 4444 12.3.4.7 x)",
+      "variants": [ "{callsign}, continúe rodaje, siga al {traffic}", "{callsign}, siga al {traffic}, continúe rodaje" ]
+    },
+    "atc.standby": {
+      "ref": "Anexo 10 Vol. II (es), palabras de procedimiento: VERIFICAR V-34",
+      "variants": [ "{callsign}, espere" ]
+    },
+    "atc.say_again": {
+      "ref": "Anexo 10 Vol. II (es) 5.2.1.9.4.5 \"REPITA\" (ANAC Argentina, Procedimientos de telecomunicaciones aeronáuticas, 2016)",
+      "variants": [ "{callsign}, repita" ]
+    },
+    "atc.say_again_unknown": {
+      "ref": "Anexo 10 Vol. II (es): \"ESTACIÓN QUE LLAMA A (estación llamada) REPITA SU DISTINTIVO DE LLAMADA\" (ANAC Argentina, 2016)",
+      "variants": [ "Estación que llama a {station}, repita su distintivo de llamada" ]
+    },
+    "atc.negative_correction": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.10 k) \"NEGATIVO\"",
+      "variants": [ "{callsign}, negativo, {correction}" ]
+    },
+    "atc.read_back": {
+      "ref": "Anexo 10 Vol. II (es), palabras de procedimiento: VERIFICAR V-34",
+      "variants": [ "{callsign}, colacione {element}" ]
+    },
+    "atc.call": {
+      "ref": "Anexo 10 Vol. II: llamada con el distintivo de la aeronave y de la estación",
+      "variants": [ "{callsign}, {station}" ]
+    },
+    "atc.how_do_you_read": {
+      "ref": "Anexo 10 Vol. II (es), palabras de procedimiento: VERIFICAR V-34",
+      "variants": [ "{callsign}, {station}, ¿cómo me recibe?" ]
+    },
+    "element.destination": {
+      "ref": "LUAW (no oficial, §8.1)",
+      "variants": [ "destino" ]
+    },
+    "element.sid": {
+      "ref": "LUAW (no oficial, §8.1)",
+      "variants": [ "salida" ]
+    },
+    "element.runway": {
+      "ref": "LUAW (no oficial, §8.1)",
+      "variants": [ "pista" ]
+    },
+    "element.level": {
+      "ref": "LUAW (no oficial, §8.1)",
+      "variants": [ "nivel" ]
+    },
+    "element.squawk": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.4.3 \"TRANSPONDER\"",
+      "variants": [ "transponder" ]
+    },
+    "element.frequency": {
+      "ref": "LUAW (no oficial, §8.1)",
+      "variants": [ "frecuencia" ]
+    },
+    "element.callsign": {
+      "ref": "LUAW (no oficial, §8.1)",
+      "variants": [ "distintivo de llamada" ]
+    },
+    "correction.destination": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "autorizado a {destination}" ]
+    },
+    "correction.sid": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "salida {sid}" ]
+    },
+    "correction.runway": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "pista {runway}" ]
+    },
+    "correction.level": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "ascienda a {level}" ]
+    },
+    "correction.squawk": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "transponder {squawk}" ]
+    },
+    "correction.frequency": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "contacte {next_station} {frequency}" ]
+    },
+    "crew.connected": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.7.1.2 a) \"¿LISTO PARA RETROCESO?\", c) \"CONFIRME FRENOS FUERA\"",
+      "variants": [ "Cabina, tierra. Barra de remolque conectada. ¿Listo para retroceso? Confirme frenos fuera." ]
+    },
+    "crew.pushing": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.7.1.2 e) \"INICIANDO RETROCESO\"",
+      "variants": [ "Frenos fuera. Iniciando retroceso." ]
+    },
+    "crew.start_engines": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12 12.3.4.3 f) \"ENCENDIDO DE MOTORES A DISCRECIÓN\" (dicho por el personal de tierra: LUAW (no oficial, §8.1))",
+      "variants": [ "Encendido de motores a discreción." ]
+    },
+    "crew.complete": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.7.1.2 f) \"RETROCESO COMPLETADO\", h) \"CONFIRME FRENOS PUESTOS\"",
+      "variants": [ "Retroceso completado. Confirme frenos puestos." ]
+    },
+    "crew.disconnect": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.7.1.2 k) \"DESCONECTANDO, ESPERE SEÑALES A SU IZQUIERDA (o DERECHA)\"",
+      "variants": [ "Frenos puestos. Desconectando, espere señales a su izquierda. Buen vuelo." ]
+    },
+    "crew.paused": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12 12.7.1.2 g) \"DETENGA RETROCESO\" e i) \"FRENOS PUESTOS\": LUAW (no oficial, §8.1)",
+      "variants": [ "Retroceso detenido, frenos puestos. Suelte frenos para continuar." ]
+    },
+    "crew.resumed": {
+      "ref": "LUAW (no oficial, §8.1)",
+      "variants": [ "Continuando retroceso." ]
+    },
+    "crew.stopped": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.7.1.2 h) \"CONFIRME FRENOS PUESTOS\"",
+      "variants": [ "Deteniendo retroceso. Confirme frenos puestos." ]
+    },
+    "pilot.request_clearance": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 b) \"(reglas de vuelo) A (destino)\"; ATIS \"INFORMACIÓN (identificación)\"",
+      "variants": [ "{station}, {callsign}, solicito autorización IFR a {destination}, información {atis}" ]
+    },
+    "pilot.request_clearance_no_atis": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "{station}, {callsign}, solicito autorización IFR a {destination}" ]
+    },
+    "pilot.readback_clearance": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "Autorizado a {destination}, salida {sid}, pista {runway}, ascienda a {level}, transponder {squawk}{after_departure_readback}, {callsign}" ]
+    },
+    "pilot.readback_clearance_no_level": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "Autorizado a {destination}, salida {sid}, pista {runway}, transponder {squawk}{after_departure_readback}, {callsign}" ]
+    },
+    "pilot.readback_clearance_no_sid": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "Autorizado a {destination}, pista {runway}, ascienda a {level}, transponder {squawk}{after_departure_readback}, {callsign}" ]
+    },
+    "pilot.readback_clearance_no_sid_no_level": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ "Autorizado a {destination}, pista {runway}, transponder {squawk}{after_departure_readback}, {callsign}" ]
+    },
+    "pilot.readback_after_departure": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12",
+      "variants": [ ", después de la salida {next_station} {frequency}" ]
+    },
+    "pilot.request_startup": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.3 b) \"[emplazamiento] SOLICITO ENCENDIDO DE MOTORES, e INFORMACIÓN (ATIS)\"",
+      "variants": [ "{station}, {callsign}, puesto {stand}, información {atis}, QNH {qnh}, solicito encendido de motores" ]
+    },
+    "pilot.request_pushback": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.4 a) \"[emplazamiento de la aeronave] SOLICITO RETROCESO\"",
+      "variants": [ "{callsign}, puesto {stand}, solicito retroceso" ]
+    },
+    "pilot.request_pushback_no_stand": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.4 a)",
+      "variants": [ "{station}, {callsign}, solicito retroceso" ]
+    },
+    "pilot.readback_pushback": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.4 b)",
+      "variants": [ "Retroceso aprobado, {callsign}" ]
+    },
+    "pilot.readback_give_way": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 u) \"CEDO PASO A (tránsito)\"",
+      "variants": [ "Cedo paso al {traffic}, {callsign}" ]
+    },
+    "pilot.readback_caution": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 dd) \"RODANDO MÁS LENTO\"",
+      "variants": [ "Rodando más lento, {callsign}" ]
+    },
+    "pilot.readback_follow": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 x), colación: LUAW (no oficial, §8.1)",
+      "variants": [ "Sigo al {traffic}, {callsign}" ]
+    },
+    "pilot.readback_continue_taxi": {
+      "ref": "LUAW (no oficial, §8.1): \"CONTINÚE\" con el rodaje ya autorizado; \"SIGA\" de Doc 4444 12.3.4.7 x)",
+      "variants": [ "Continúo rodaje, {callsign}" ]
+    },
+    "pilot.readback_continue_taxi_follow": {
+      "ref": "LUAW (no oficial, §8.1): \"CONTINÚE\" con el rodaje ya autorizado; \"SIGA\" de Doc 4444 12.3.4.7 x)",
+      "variants": [ "Continúo rodaje, sigo al {traffic}, {callsign}" ]
+    },
+    "pilot.readback_hold_position": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.8 e) \"MANTENIENDO\"",
+      "variants": [ "Manteniendo posición, {callsign}" ]
+    },
+    "pilot.request_taxi": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 a) \"SOLICITO RODAJE\"",
+      "variants": [ "{station}, {callsign}, solicito rodaje" ]
+    },
+    "pilot.readback_taxi": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 e)",
+      "variants": [ "Ruedo a punto de espera pista {runway} vía {route}, {callsign}" ]
+    },
+    "pilot.readback_taxi_no_route": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 c)",
+      "variants": [ "Ruedo a punto de espera pista {runway}, {callsign}" ]
+    },
+    "pilot.ready_for_departure": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.10 e) \"LISTO\"",
+      "variants": [ "{station}, {callsign}, punto de espera pista {runway}, listo para salida" ]
+    },
+    "pilot.readback_line_up": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.10 f)",
+      "variants": [ "Ruedo a posición y mantengo pista {runway}, {callsign}" ]
+    },
+    "pilot.readback_line_up_behind": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.10 j) \"(condición) RODANDO A POSICIÓN (reiteración de la condición)\"",
+      "variants": [ "Detrás del {traffic} que sale, rodando a posición pista {runway} detrás, {callsign}" ]
+    },
+    "pilot.readback_line_up_behind_landing": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.10 j) \"(condición) RODANDO A POSICIÓN (reiteración de la condición)\"",
+      "variants": [ "Detrás del {traffic} que aterriza, rodando a posición pista {runway} detrás, {callsign}" ]
+    },
+    "pilot.readback_hold_short": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.8 f) \"MANTENGO FUERA\"",
+      "variants": [ "Mantengo fuera de pista {runway}, {callsign}" ]
+    },
+    "pilot.readback_climb": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.1.2 \"ASCIENDA A (nivel)\", colación: LUAW (no oficial, §8.1)",
+      "variants": [ "Ascendiendo a {level}, {callsign}" ]
+    },
+    "pilot.readback_takeoff": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.11 a)",
+      "variants": [ "Pista {runway}, autorizado a despegar, {callsign}" ]
+    },
+    "pilot.readback_contact": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.1.4 a)",
+      "variants": [ "{next_station} {frequency}, {callsign}", "{next_station} {frequency}, hasta luego, {callsign}" ]
+    },
+    "pilot.check_in_departure": {
+      "ref": "AIP-CHILE AD 2 SCEL 3.5 (primer contacto con Approach: indicativo, altitud y SID)",
+      "variants": [ "{station}, {callsign}, {altitude}, {sid}" ]
+    },
+    "pilot.say_again": {
+      "ref": "Anexo 10 Vol. II (es) 5.2.1.9.4.5 \"REPITA\"",
+      "variants": [ "Repita, {callsign}" ]
+    },
+    "pilot.unable": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: \"IMPOSIBLE\" (12.3.4.10 a) \"IMPOSIBLE APROBAR SALIDA\"): LUAW (no oficial, §8.1)",
+      "variants": [ "Imposible, {callsign}" ]
+    },
+    "pilot.arrival_final": {
+      "ref": "REQUIREMENTS §8.3b (LUAW, no oficial)",
+      "variants": [ "{station}, {callsign}, final pista {runway}" ]
+    },
+    "atc.continue_approach": {
+      "ref": "Doc 4444 cap. 12 (texto en español) 'CONTINÚE APROXIMACIÓN'",
+      "variants": [ "{callsign}, continúe aproximación" ]
+    },
+    "pilot.readback_continue_approach": {
+      "ref": "REQUIREMENTS §8.3b (no oficial)",
+      "variants": [ "Continúo aproximación, {callsign}" ]
+    },
+    "atc.cleared_to_land": {
+      "ref": "Doc 4444 cap. 12 (texto en español) 'AUTORIZADO A ATERRIZAR'",
+      "variants": [ "{callsign}, pista {runway}, autorizado a aterrizar, viento {wind}", "{callsign}, viento {wind}, pista {runway}, autorizado a aterrizar" ]
+    },
+    "atc.cleared_to_land_no_wind": {
+      "ref": "Doc 4444 cap. 12 (texto en español)",
+      "variants": [ "{callsign}, pista {runway}, autorizado a aterrizar" ]
+    },
+    "pilot.readback_land": {
+      "ref": "Doc 4444 cap. 12 (colación de pista y autorización)",
+      "variants": [ "Pista {runway}, autorizado a aterrizar, {callsign}" ]
+    },
+    "atc.go_around": {
+      "ref": "Doc 4444 cap. 12 (texto en español) 'MOTOR Y AL AIRE'",
+      "variants": [ "{callsign}, motor y al aire, repito, motor y al aire" ]
+    },
+    "pilot.readback_go_around": {
+      "ref": "Doc 4444 cap. 12 (texto en español)",
+      "variants": [ "Motor y al aire, {callsign}" ]
+    },
+    "atc.descend": {
+      "ref": "Doc 4444 (es) 12.3.1.2 'DESCIENDA A (nivel)'",
+      "variants": [ "{callsign}, descienda a {level}" ]
+    },
+    "atc.descend_qnh": {
+      "ref": "Doc 4444 (es) 12.3.1.2 y QNH; REQUIREMENTS §8.3b",
+      "variants": [ "{callsign}, descienda a altitud {level}, QNH {qnh}" ]
+    },
+    "pilot.readback_descend": {
+      "ref": "REQUIREMENTS §8.3b (no oficial, como la de ascenso)",
+      "variants": [ "Descendiendo a {level}, {callsign}" ]
+    },
+    "pilot.readback_descend_qnh": {
+      "ref": "REQUIREMENTS §8.3b (no oficial)",
+      "variants": [ "Descendiendo a altitud {level}, QNH {qnh}, {callsign}" ]
+    },
+    "atc.cleared_approach": {
+      "ref": "Doc 4444 (es) cap. 12 'AUTORIZADO APROXIMACIÓN'",
+      "variants": [ "{callsign}, autorizado aproximación {approach} pista {runway}" ]
+    },
+    "pilot.readback_cleared_approach": {
+      "ref": "Doc 4444 (es) cap. 12",
+      "variants": [ "Autorizado aproximación {approach} pista {runway}, {callsign}" ]
+    },
+    "atc.reduce_speed": {
+      "ref": "Doc 4444 (es) cap. 12 'REDUZCA VELOCIDAD A (número) NUDOS'",
+      "variants": [ "{callsign}, reduzca velocidad a {speed} nudos" ]
+    },
+    "pilot.readback_reduce_speed": {
+      "ref": "REQUIREMENTS §8.3b (no oficial)",
+      "variants": [ "Reduciendo a {speed} nudos, {callsign}" ]
+    },
+    "atc.resume_speed": {
+      "ref": "Doc 4444 (es) cap. 12 'REANUDE VELOCIDAD NORMAL'",
+      "variants": [ "{callsign}, reanude velocidad normal" ]
+    },
+    "pilot.readback_resume_speed": {
+      "ref": "REQUIREMENTS §8.3b (no oficial)",
+      "variants": [ "Reanudando velocidad normal, {callsign}" ]
+    },
+    "atc.vacate_contact_ground": {
+      "ref": "Doc 4444 (es) 12.3.1.4 a) 'CONTACTE (dependencia) (frecuencia)'; 'abandone por… al abandonar' no oficial (VERIFICAR V-36)",
+      "variants": [ "{callsign}, abandone por {taxiway}, al abandonar contacte {next_station} {frequency}" ]
+    },
+    "atc.when_vacated_contact_ground": {
+      "ref": "Doc 4444 (es) 12.3.1.4 a); 'al abandonar' no oficial (VERIFICAR V-36)",
+      "variants": [ "{callsign}, al abandonar la pista contacte {next_station} {frequency}" ]
+    },
+    "pilot.readback_vacate_contact_ground": {
+      "ref": "REQUIREMENTS §8.3b (no oficial)",
+      "variants": [ "Abandono por {taxiway}, {next_station} {frequency}, {callsign}" ]
+    },
+    "pilot.readback_when_vacated_contact_ground": {
+      "ref": "REQUIREMENTS §8.3b (no oficial)",
+      "variants": [ "Al abandonar, {next_station} {frequency}, {callsign}" ]
+    },
+    "pilot.runway_vacated": {
+      "ref": "REQUIREMENTS §8.3b (no oficial: aviso, no autorización)",
+      "variants": [ "{station}, {callsign}, pista libre" ]
+    },
+    "atc.taxi_to_stand": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7 'RUEDE A … VÍA (trayecto)'",
+      "variants": [ "{callsign}, ruede al puesto {stand} vía {route}" ]
+    },
+    "atc.taxi_to_stand_no_route": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7",
+      "variants": [ "{callsign}, ruede al puesto {stand}" ]
+    },
+    "pilot.readback_taxi_to_stand": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7",
+      "variants": [ "Ruedo al puesto {stand} vía {route}, {callsign}" ]
+    },
+    "pilot.readback_taxi_to_stand_no_route": {
+      "ref": "Doc 4444 (es) 15.ª ed., cap. 12: 12.3.4.7",
+      "variants": [ "Ruedo al puesto {stand}, {callsign}" ]
+    },
+    "atc.cross_runway": {
+      "ref": "Doc 4444 (es) cap. 12 'CRUCE PISTA (número)'; 'notifique pista libre' (VERIFICAR V-36)",
+      "variants": [ "{callsign}, cruce pista {runway}, notifique pista libre" ]
+    },
+    "pilot.readback_cross_runway": {
+      "ref": "REQUIREMENTS §8.3b (colación; 'cumpliré' por 'wilco')",
+      "variants": [ "Cruzo pista {runway}, cumpliré, {callsign}" ]
+    },
+    "atc.climb": {
+      "ref": "Doc 4444 (es) 12.3.1.2 'ASCIENDA A (nivel)'",
+      "variants": [ "{callsign}, ascienda a {level}" ]
+    },
+    "pilot.check_in_enroute": {
+      "ref": "REQUIREMENTS §8.3c (primer contacto en ruta: indicativo y nivel)",
+      "variants": [ "{station}, {callsign}, {level}" ]
+    },
+    "pilot.check_in_enroute_changing": {
+      "ref": "REQUIREMENTS §8.3c (como CAP 413 pág. 220)",
+      "variants": [ "{station}, {callsign}, {level}, {verb} a {cleared}" ]
+    },
+    "atc.expect_approach": {
+      "ref": "Doc 4444 (es) cap. 12 'ESPERE APROXIMACIÓN (tipo) PISTA (número)' (VERIFICAR V-36)",
+      "variants": [ "{callsign}, espere aproximación {approach} pista {runway}" ]
+    },
+    "pilot.readback_expect_approach": {
+      "ref": "LUAW (no oficial, V-36): colación de 'espere aproximación'; ADR-097",
+      "variants": [ "Espero aproximación {approach} pista {runway}, {callsign}" ]
+    },
+    "atc.expect_runway": {
+      "ref": "LUAW (no oficial): variante de 'espere aproximación' sin aproximación publicada; ADR-097",
+      "variants": [ "{callsign}, espere pista {runway}" ]
+    },
+    "atc.unable_runway": {
+      "ref": "LUAW (no oficial): 'negativo' con el motivo, como 'imposible directo'; ADR-097",
+      "variants": [ "{callsign}, negativo, imposible pista {runway}, pista en uso {in_use}" ]
+    },
+    "pilot.request_runway": {
+      "ref": "LUAW (no oficial): pedido de pista; ADR-097",
+      "variants": [ "{station}, {callsign}, solicito pista {runway}" ]
+    },
+    "atc.expect_descent_after": {
+      "ref": "LUAW (no oficial): CAP 413 cap. 7 §7.1 en español; ADR-098",
+      "variants": [ "{callsign}, mantenga {level}, espere descenso después de {fix}" ]
+    },
+    "pilot.readback_maintaining": {
+      "ref": "LUAW (no oficial): colación de 'mantenga'",
+      "variants": [ "Manteniendo {level}, {callsign}" ]
+    },
+    "atc.descend_cross_above": {
+      "ref": "LUAW (no oficial): CAP 413 cap. 7 §7.1 en español; ADR-098",
+      "variants": [ "{callsign}, descienda a {level}, cruce {fix} a {cross_level} o superior" ]
+    },
+    "pilot.readback_descend_cross_above": {
+      "ref": "LUAW (no oficial)",
+      "variants": [ "Desciendo a {level}, cruzo {fix} a {cross_level} o superior, {callsign}" ]
+    },
+    "atc.cleared_star_descend_via": {
+      "ref": "LUAW (no oficial): PANS-ATM Enmienda 7-A en español; ADR-101",
+      "variants": [ "{callsign}, autorizado llegada {star}, descienda vía STAR a {level}" ]
+    },
+    "pilot.readback_cleared_star_descend_via": {
+      "ref": "LUAW (no oficial)",
+      "variants": [ "Autorizado llegada {star}, desciendo vía STAR a {level}, {callsign}" ]
+    },
+    "pilot.request_direct": {
+      "ref": "REQUIREMENTS §8.3c (solicitud, no oficial)",
+      "variants": [ "{station}, {callsign}, solicito directo {fix}" ]
+    },
+    "atc.route_direct": {
+      "ref": "Doc 4444 (es) cap. 12 'DIRECTO A (punto)' (VERIFICAR V-36)",
+      "variants": [ "{callsign}, directo a {fix}" ]
+    },
+    "pilot.readback_route_direct": {
+      "ref": "REQUIREMENTS §8.3c",
+      "variants": [ "Directo a {fix}, {callsign}" ]
+    },
+    "pilot.request_descent": {
+      "ref": "REQUIREMENTS §8.3c (solicitud, no oficial)",
+      "variants": [ "{station}, {callsign}, solicito descenso" ]
+    },
+    "pilot.request_climb": {
+      "ref": "REQUIREMENTS §8.3c (solicitud, no oficial)",
+      "variants": [ "{station}, {callsign}, solicito ascenso a {level}" ]
+    },
+    "pilot.going_around": {
+      "ref": "Doc 4444 (es) 'MOTOR Y AL AIRE'",
+      "variants": [ "{station}, {callsign}, motor y al aire" ]
+    },
+    "atc.unable_direct": {
+      "ref": "REQUIREMENTS §8.3c (respuesta negativa, no oficial)",
+      "variants": [ "{callsign}, negativo, imposible directo a {fix}" ]
+    },
+    "atc.traffic_info": {
+      "ref": "no oficial: traducción de CAP 413 §5.22-5.27 (VERIFICAR V-42 contra Doc 4444 (es))",
+      "variants": [ "{callsign}, tránsito a las {clock}, {distance} millas, {movement}, {level}" ]
+    },
+    "traffic.similar_direction": {
+      "ref": "no oficial: traducción de CAP 413 §5.22-5.27 (VERIFICAR V-42 contra Doc 4444 (es))",
+      "variants": [ "misma dirección" ]
+    },
+    "traffic.opposite_direction": {
+      "ref": "no oficial: traducción de CAP 413 §5.22-5.27 (VERIFICAR V-42 contra Doc 4444 (es))",
+      "variants": [ "dirección opuesta" ]
+    },
+    "traffic.crossing_left_right_ahead": {
+      "ref": "no oficial: traducción de CAP 413 §5.22-5.27 (VERIFICAR V-42 contra Doc 4444 (es))",
+      "variants": [ "cruzando de izquierda a derecha, por delante" ]
+    },
+    "traffic.crossing_left_right_behind": {
+      "ref": "no oficial: traducción de CAP 413 §5.22-5.27 (VERIFICAR V-42 contra Doc 4444 (es))",
+      "variants": [ "cruzando de izquierda a derecha, por detrás" ]
+    },
+    "traffic.crossing_right_left_ahead": {
+      "ref": "no oficial: traducción de CAP 413 §5.22-5.27 (VERIFICAR V-42 contra Doc 4444 (es))",
+      "variants": [ "cruzando de derecha a izquierda, por delante" ]
+    },
+    "traffic.crossing_right_left_behind": {
+      "ref": "no oficial: traducción de CAP 413 §5.22-5.27 (VERIFICAR V-42 contra Doc 4444 (es))",
+      "variants": [ "cruzando de derecha a izquierda, por detrás" ]
+    },
+    "pilot.traffic_in_sight": {
+      "ref": "no oficial: traducción de CAP 413 §5.22-5.27 (VERIFICAR V-42 contra Doc 4444 (es))",
+      "variants": [ "Tránsito a la vista, {callsign}" ]
+    },
+    "atc.hold": {
+      "ref": "no oficial: traducción de CAP 413 §6.11/§7.17 (VERIFICAR V-35 contra Doc 4444 (es))",
+      "variants": [ "{callsign}, mantenga espera sobre {fix} {level}, prevea autorización para continuar a los {minutes}" ]
+    },
+    "pilot.readback_hold": {
+      "ref": "no oficial: traducción de CAP 413 §6.11/§7.17 (VERIFICAR V-35 contra Doc 4444 (es))",
+      "variants": [ "Mantengo espera sobre {fix} {level}, prevista autorización a los {minutes}, {callsign}" ]
+    },
+    "atc.expect_approach_via": {
+      "ref": "Doc 4444 (es) cap. 12 'ESPERE APROXIMACIÓN (tipo) PISTA (número)' con la transición de la carta (no oficial, VERIFICAR V-36); ADR-105",
+      "variants": [ "{callsign}, espere aproximación {approach} pista {runway} vía {transition}" ]
+    },
+    "atc.missed_approach_published": {
+      "ref": "no oficial (ADR-105): instrucción de aproximación frustrada; VERIFICAR V-47 contra Doc 4444 (es)",
+      "variants": [ "{callsign}, siga el procedimiento de aproximación frustrada publicado" ]
+    },
+    "atc.missed_approach_published_contact": {
+      "ref": "no oficial (ADR-105): frustrada publicada y cambio de frecuencia; VERIFICAR V-47",
+      "variants": [ "{callsign}, siga el procedimiento de aproximación frustrada publicado, contacte {next_station} {frequency}" ]
+    },
+    "pilot.readback_missed_approach_published": {
+      "ref": "no oficial (ADR-105): colación de la frustrada",
+      "variants": [ "Frustrada publicada, {callsign}" ]
+    },
+    "pilot.readback_missed_approach_published_contact": {
+      "ref": "no oficial (ADR-105): colación de la frustrada con frecuencia",
+      "variants": [ "Frustrada publicada, {next_station} {frequency}, {callsign}" ]
+    },
+    "atc.missed_approach_climb": {
+      "ref": "Doc 4444 (es) 12.3.1.2 'ASCIENDA A (nivel)' y rumbo de pista; frustrada sin procedimiento publicado (ADR-105, VERIFICAR V-47)",
+      "variants": [ "{callsign}, ascienda a {level}, mantenga rumbo de pista" ]
+    },
+    "atc.missed_approach_climb_contact": {
+      "ref": "Doc 4444 (es) 12.3.1.2 y cambio de frecuencia; frustrada sin procedimiento publicado (ADR-105, VERIFICAR V-47)",
+      "variants": [ "{callsign}, ascienda a {level}, mantenga rumbo de pista, contacte {next_station} {frequency}" ]
+    },
+    "pilot.readback_missed_approach_climb": {
+      "ref": "no oficial (ADR-105)",
+      "variants": [ "Ascendiendo a {level}, rumbo de pista, {callsign}" ]
+    },
+    "pilot.readback_missed_approach_climb_contact": {
+      "ref": "no oficial (ADR-105)",
+      "variants": [ "Ascendiendo a {level}, rumbo de pista, {next_station} {frequency}, {callsign}" ]
+    },
+    "atc.hold_published": {
+      "ref": "Doc 4444 (es) cap. 12 'MANTENGA ESPERA SOBRE (punto) SEGÚN LO PUBLICADO' (VERIFICAR V-35); ADR-105",
+      "variants": [ "{callsign}, mantenga espera sobre {fix} según lo publicado, mantenga {level}" ]
+    },
+    "pilot.readback_hold_published": {
+      "ref": "no oficial (ADR-105): colación de la espera",
+      "variants": [ "Espera sobre {fix} según lo publicado, mantengo {level}, {callsign}" ]
+    },
+    "atc.direct_maintain": {
+      "ref": "Doc 4444 (es) cap. 12 'DIRECTO A (punto)' y 'MANTENGA (nivel)' (VERIFICAR V-36); ADR-105",
+      "variants": [ "{callsign}, directo a {fix}, mantenga {level}" ]
+    },
+    "pilot.readback_direct_maintain": {
+      "ref": "no oficial (ADR-105)",
+      "variants": [ "Directo a {fix}, mantengo {level}, {callsign}" ]
+    },
+    "atc.expedite_descent": {
+      "ref": "Doc 4444 (es) 12.3.1.2 'ACELERE DESCENSO HASTA (nivel)' (VERIFICAR V-47); ADR-105",
+      "variants": [ "{callsign}, acelere el descenso a {level}" ]
+    },
+    "pilot.readback_expedite_descent": {
+      "ref": "no oficial (ADR-105)",
+      "variants": [ "Acelerando el descenso a {level}, {callsign}" ]
+    },
+    "atc.orbit_for_descent": {
+      "ref": "Doc 4444 (es) cap. 12 'HAGA UN VIRAJE DE TRESCIENTOS SESENTA GRADOS POR LA IZQUIERDA (o DERECHA) (motivo)' (VERIFICAR V-47); ADR-105",
+      "variants": [ "{callsign}, haga un viraje de trescientos sesenta grados por la {direction} para descender" ]
+    },
+    "pilot.readback_orbit_for_descent": {
+      "ref": "no oficial (ADR-105)",
+      "variants": [ "Viraje de trescientos sesenta por la {direction}, {callsign}" ]
+    },
+    "atc.altitude_should_be": {
+      "ref": "Doc 4444 (es) cap. 12, aproximación radar: 'A (número) MILLAS DE LA TOMA DE CONTACTO, LA ALTITUD DEBERÍA SER (cifra)' (VERIFICAR V-47); ADR-105",
+      "variants": [ "{callsign}, a {distance} millas de la toma de contacto, su altitud debería ser {altitude} pies" ]
+    },
+    "atc.low_altitude_warning": {
+      "ref": "Doc 4444 (es) cap. 12 'ALERTA DE ALTITUD BAJA, VERIFIQUE SU ALTITUD INMEDIATAMENTE, QNH (número)' (VERIFICAR V-47); ADR-105",
+      "variants": [ "{callsign}, alerta de altitud baja, verifique su altitud inmediatamente, QNH {qnh}" ]
+    },
+    "element.speed": {
+      "ref": "LUAW (no oficial, §8.1); ADR-105",
+      "variants": [ "velocidad" ]
+    },
+    "element.star": {
+      "ref": "LUAW (no oficial, §8.1); ADR-105",
+      "variants": [ "llegada" ]
+    },
+    "correction.speed": {
+      "ref": "Doc 4444 (es) cap. 12 'REDUZCA VELOCIDAD A (número) NUDOS'; ADR-105",
+      "variants": [ "reduzca velocidad a {speed} nudos" ]
+    },
+    "correction.star": {
+      "ref": "LUAW (no oficial, §8.1); ADR-105",
+      "variants": [ "llegada {star}" ]
+    },
+    "correction.level_descend": {
+      "ref": "Doc 4444 (es) 12.3.1.2 'DESCIENDA A (nivel)'; ADR-105",
+      "variants": [ "descienda a {level}" ]
+    },
+    "atc.departure_runway_change": {
+      "ref": "no oficial (ADR-106): cambio de pista de salida con la SID nueva; VERIFICAR V-47",
+      "variants": [ "{callsign}, cambio de pista, nueva pista de salida {runway}, salida {sid}" ]
+    },
+    "atc.departure_runway_change_no_sid": {
+      "ref": "no oficial (ADR-106): cambio de pista de salida; VERIFICAR V-47",
+      "variants": [ "{callsign}, cambio de pista, nueva pista de salida {runway}" ]
+    },
+    "pilot.readback_departure_runway_change": {
+      "ref": "no oficial (ADR-106)",
+      "variants": [ "Pista {runway}, salida {sid}, {callsign}" ]
+    },
+    "pilot.readback_departure_runway_change_no_sid": {
+      "ref": "no oficial (ADR-106)",
+      "variants": [ "Pista {runway}, {callsign}" ]
+    },
+    "atc.orbit_for_sequencing": {
+      "ref": "Doc 4444 (es) cap. 12 'HAGA UN VIRAJE DE TRESCIENTOS SESENTA GRADOS POR LA IZQUIERDA (o DERECHA) (motivo)' (VERIFICAR V-47); ADR-107",
+      "variants": [ "{callsign}, haga un viraje de trescientos sesenta grados por la {direction} por secuencia" ]
+    },
+    "atc.cleared_approach_via": {
+      "ref": "Doc 4444 (es) cap. 12 'AUTORIZADO APROXIMACIÓN' con la letra y la transición de la carta (no oficial, VERIFICAR V-36); ADR-121",
+      "variants": [ "{callsign}, autorizado aproximación {approach} pista {runway} vía {transition}" ]
+    },
+    "pilot.readback_cleared_approach_via": {
+      "ref": "Doc 4444 (es) cap. 12; ADR-121",
+      "variants": [ "Autorizado aproximación {approach} pista {runway} vía {transition}, {callsign}" ]
+    },
+    "atc.vector_for_approach": {
+      "ref": "Doc 4444 (es) 12.3.4 'VIRE IZQUIERDA (o DERECHA) RUMBO (tres cifras)' y 12.4.2 'GUÍA VECTORIAL PARA APROXIMACIÓN (tipo) PISTA (número)' (VERIFICAR V-47); ADR-123",
+      "variants": [ "{callsign}, vire {direction} rumbo {heading}, guía vectorial para aproximación {approach} pista {runway}" ]
+    },
+    "pilot.readback_vector_for_approach": {
+      "ref": "no oficial (colación de rumbo); ADR-123",
+      "variants": [ "Virando {direction} rumbo {heading}, {callsign}" ]
+    },
+    "atc.vector_heading": {
+      "ref": "Doc 4444 (es) 12.3.4 'VIRE IZQUIERDA (o DERECHA) RUMBO (tres cifras)' (VERIFICAR V-47); ADR-123",
+      "variants": [ "{callsign}, vire {direction} rumbo {heading}" ]
+    },
+    "pilot.readback_vector_heading": {
+      "ref": "no oficial (colación de rumbo); ADR-123",
+      "variants": [ "Virando {direction} rumbo {heading}, {callsign}" ]
+    },
+    "atc.vector_intercept_cleared": {
+      "ref": "Doc 4444 (es) 12.3.4 y 12.4.2 'AUTORIZADO APROXIMACIÓN (tipo) PISTA (número)' (VERIFICAR V-47); ADR-123",
+      "variants": [ "{callsign}, vire {direction} rumbo {heading}, autorizado aproximación {approach} pista {runway}" ]
+    },
+    "pilot.readback_vector_intercept_cleared": {
+      "ref": "no oficial; ADR-123",
+      "variants": [ "Virando {direction} rumbo {heading}, autorizado aproximación {approach} pista {runway}, {callsign}" ]
+    },
+    "correction.heading": {
+      "ref": "Doc 4444 (es) 12.3.4 (VERIFICAR V-47); ADR-123",
+      "variants": [ "rumbo {heading}" ]
+    },
+    "atc.identified_via_sid": {
+      "ref": "PANS-ATM (Doc 4444, es) Enmienda 7-A 'ASCIENDA VÍA SID A (nivel)' (VERIFICAR V-47); ADR-124",
+      "variants": [ "{callsign}, {station}, identificado, ascienda vía SID a {level}" ]
+    },
+    "atc.caution_wake": {
+      "ref": "Doc 4444 (es) cap. 12 'PRECAUCIÓN ESTELA TURBULENTA' (VERIFICAR V-47); ADR-124",
+      "variants": [ "{callsign}, precaución estela turbulenta, {traffic} {distance} millas adelante" ]
+    },
+    "atc.radio_check": {
+      "ref": "Anexo 10 vol. II (es) 5.2.1.8, escala de legibilidad (VERIFICAR V-47); ADR-132",
+      "variants": [ "{callsign}, {station}, le recibo cinco" ]
+    },
+    "pilot.radio_check": {
+      "ref": "Anexo 10 vol. II (es) 5.2.1.8 'PRUEBA DE RADIO' (VERIFICAR V-47); ADR-132",
+      "variants": [ "{station}, {callsign}, prueba de radio" ]
+    },
+    "pilot.confirm_clearance": {
+      "ref": "no oficial (consulta del piloto, sin valores; ADR-132)",
+      "variants": [ "{station}, {callsign}, confirme autorización" ]
+    }
+  }
+}

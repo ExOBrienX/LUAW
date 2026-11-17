@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- TTS (Piper en proceso aparte), filtro de radio y audio (etapa 5b); STT en la 5c. -->
+  <ItemGroup>
+    <ProjectReference Include="..\SimATC.Core\SimATC.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NAudio.WinMM" />
+    <PackageReference Include="Whisper.net" />
+    <PackageReference Include="Whisper.net.Runtime" />
+  </ItemGroup>
+</Project>

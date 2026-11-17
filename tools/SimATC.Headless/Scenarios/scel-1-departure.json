@@ -1,0 +1,4 @@
+{
+  "airport": "SCEL", "seed": 1, "hours": 0.5, "runways": ["35L"],
+  "departures": [ { "stand": "Gate 16", "runway": "35L", "atS": 0 } ]
+}

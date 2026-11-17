@@ -1,0 +1,217 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:app="using:SimATC.App"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SimATC.App.ViewModels"
+        xmlns:views="using:SimATC.App.Views"
+        x:Class="SimATC.App.Views.PushbackWindow"
+        x:DataType="vm:PushbackViewModel"
+        Width="1000" Height="640" MinWidth="720" MinHeight="520"
+        Background="{StaticResource BgPanel}"
+        Title="{app:T 'LUAW · pushback'}">
+    <!-- Planificador de pushback (RF-21c): a la izquierda el dibujo (el avión final se arrastra y se gira con el mouse),
+         a la derecha los ajustes. Enter inicia, Esc cierra. -->
+    <Window.Styles>
+        <!-- Selector de tres partes (cola a la izquierda / recto / derecha). -->
+        <Style Selector="Button.seg">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="4,7" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+        </Style>
+        <Style Selector="Button.seg.on">
+            <Setter Property="Background" Value="{StaticResource AccentBg}" />
+            <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.seg.on /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentBg}" />
+            <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+        </Style>
+        <!-- Valor de cada ajuste, a la derecha de su nombre. -->
+        <Style Selector="Border.value">
+            <Setter Property="Background" Value="{StaticResource BgDeep}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="7,1" />
+        </Style>
+        <Style Selector="Border.value > TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{StaticResource Freq}" />
+        </Style>
+        <!-- Tarjetas del resumen del plan. -->
+        <Style Selector="Border.stat">
+            <Setter Property="Background" Value="{StaticResource BgRaised}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,7" />
+        </Style>
+        <Style Selector="Border.stat TextBlock.k">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+        </Style>
+        <Style Selector="Border.stat TextBlock.v">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+        </Style>
+        <Style Selector="Slider">
+            <Setter Property="Margin" Value="0,-6,0,-4" />
+        </Style>
+    </Window.Styles>
+    <Grid ColumnDefinitions="*,330">
+        <Panel>
+            <views:PushbackCanvas x:Name="Canvas" />
+            <!-- Zoom y encuadre (también Ctrl + rueda; arrastrar con la rueda apretada desplaza el mapa). -->
+            <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10">
+                <Button Classes="small" Content="+" Width="30" HorizontalContentAlignment="Center" Click="OnZoomIn" ToolTip.Tip="{app:T 'Acercar (Ctrl + rueda)'}" />
+                <Button Classes="small" Content="−" Width="30" HorizontalContentAlignment="Center" Click="OnZoomOut" ToolTip.Tip="{app:T 'Alejar (Ctrl + rueda)'}" />
+                <Button Classes="small" Content="{app:T 'Centrar'}" Click="OnRecenter" ToolTip.Tip="{app:T 'Volver a encuadrar el avión y la línea'}" />
+            </StackPanel>
+            <!-- Ayuda corta sobre el mapa, abajo a la izquierda. -->
+            <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="10" Padding="10,6" CornerRadius="6" Background="#D90E1621"
+                    IsVisible="{Binding CanEdit}">
+                <TextBlock FontSize="11.5" Foreground="{StaticResource TextDim}"
+                           Text="{app:T 'Arrastra el avión de color · rueda: girarlo · Ctrl + rueda: zoom'}" />
+            </Border>
+        </Panel>
+        <Border Grid.Column="1" BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
+            <DockPanel>
+                <!-- Abajo, fijo: avance y acciones. -->
+                <Border DockPanel.Dock="Bottom" Padding="16,14" Background="{StaticResource BgRaised}" BorderBrush="{StaticResource Line}"
+                        BorderThickness="0,1,0,0">
+                    <StackPanel Spacing="10">
+                        <StackPanel Spacing="6" IsVisible="{Binding !ShowPlanning}">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding PushProgress, StringFormat='{}{0:0} %'}" Classes="mono"
+                                           Foreground="{StaticResource TextDim}" FontSize="12" />
+                                <Panel>
+                                    <TextBlock Text="{app:T 'Pushback en curso'}" FontWeight="SemiBold" Foreground="{StaticResource TextMain}" IsVisible="{Binding IsPushing}" />
+                                    <TextBlock Text="{app:T 'Pushback terminado'}" FontWeight="SemiBold" Foreground="{StaticResource Ok}" IsVisible="{Binding IsDone}" />
+                                </Panel>
+                            </DockPanel>
+                            <ProgressBar Value="{Binding PushProgress}" Minimum="0" Maximum="100" Height="8" MinHeight="8">
+                                <ProgressBar.Transitions>
+                                    <Transitions>
+                                        <DoubleTransition Property="Value" Duration="0:0:0.4" />
+                                    </Transitions>
+                                </ProgressBar.Transitions>
+                            </ProgressBar>
+                            <TextBlock Text="{Binding CrewStatus}" Foreground="{StaticResource TextBody}" TextWrapping="Wrap" FontSize="12.5" />
+                            <TextBlock Text="{app:T 'Esta ventana se cierra sola.'}" Foreground="{StaticResource TextFaint}" FontSize="11.5" IsVisible="{Binding IsDone}" />
+                        </StackPanel>
+                        <Button Classes="primary" Content="{app:T 'Iniciar pushback  (Enter)'}" Command="{Binding StartPushbackCommand}" IsEnabled="{Binding CanStart}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,10" IsVisible="{Binding ShowPlanning}" />
+                        <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding ShowPlanning}">
+                            <Button Content="{app:T 'Restablecer'}" Command="{Binding ResetCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                    ToolTip.Tip="{app:T 'Vuelve a 20 m recto, cola a la izquierda 90°'}" />
+                            <Button Grid.Column="2" Content="{app:T 'Cerrar  (Esc)'}" Click="OnClose" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                        </Grid>
+                        <Button Classes="primary danger" Content="{app:T 'Detener pushback  (Esc)'}" Command="{Binding StopCommand}" IsVisible="{Binding IsPushing}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,9" />
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer Padding="16,16,16,8" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="14">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h2" FontSize="17" Text="{app:T 'Pushback'}" />
+                            <TextBlock Classes="label" TextWrapping="Wrap" Text="{app:T 'Arrastra el avión de color hasta donde quieres quedar, o ajusta aquí.'}" />
+                        </StackPanel>
+
+                        <!-- Estado del plan: verde, amarillo o rojo (solo mientras se planea). -->
+                        <Panel IsVisible="{Binding ShowPlanning}">
+                            <Border CornerRadius="8" Padding="10,8" Background="#14281E" BorderBrush="#2E5A43" BorderThickness="1" IsVisible="{Binding IsOk}">
+                                <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource Ok}" TextWrapping="Wrap" FontSize="12.5" />
+                            </Border>
+                            <Border CornerRadius="8" Padding="10,8" Background="#2A2210" BorderBrush="#5A4A1E" BorderThickness="1" IsVisible="{Binding IsWarning}">
+                                <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource Warn}" TextWrapping="Wrap" FontSize="12.5" />
+                            </Border>
+                            <Border CornerRadius="8" Padding="10,8" Background="#2E1416" BorderBrush="#5E2A2E" BorderThickness="1" IsVisible="{Binding IsBad}">
+                                <TextBlock Text="{Binding StatusText}" Foreground="#FF7A7A" TextWrapping="Wrap" FontSize="12.5" />
+                            </Border>
+                        </Panel>
+
+                        <!-- Resumen del plan. -->
+                        <Grid ColumnDefinitions="*,6,*,6,*">
+                            <Border Classes="stat">
+                                <StackPanel>
+                                    <TextBlock Classes="k" Text="{app:T 'Recorrido'}" />
+                                    <TextBlock Classes="v" Text="{Binding LengthText}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Classes="stat">
+                                <StackPanel>
+                                    <TextBlock Classes="k" Text="{app:T 'Rumbo final'}" />
+                                    <TextBlock Classes="v mono" Text="{Binding EndHeadingText}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="4" Classes="stat">
+                                <StackPanel>
+                                    <TextBlock Classes="k" Text="{app:T 'Mirando a'}" />
+                                    <TextBlock Classes="v" Text="{Binding EndCardinalText}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <StackPanel Spacing="6" IsEnabled="{Binding CanEdit}">
+                            <TextBlock Classes="label" Text="{app:T 'La cola va hacia'}" />
+                            <Border Background="{StaticResource BgDeep}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="3">
+                                <UniformGrid Columns="3">
+                                    <Button Classes="seg" Classes.on="{Binding TailLeft}" Content="{app:T '↶  Izquierda'}" Command="{Binding SetTurnCommand}" CommandParameter="left" />
+                                    <Button Classes="seg" Classes.on="{Binding Straight}" Content="{app:T '↓  Recto'}" Command="{Binding SetTurnCommand}" CommandParameter="straight" />
+                                    <Button Classes="seg" Classes.on="{Binding TailRight}" Content="{app:T 'Derecha  ↷'}" Command="{Binding SetTurnCommand}" CommandParameter="right" />
+                                </UniformGrid>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Spacing="2" IsEnabled="{Binding CanEdit}">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Right" Classes="value"><TextBlock Text="{Binding StraightM, StringFormat='{}{0:0} m'}" /></Border>
+                                <TextBlock Text="{app:T 'Tramo recto'}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <Slider Minimum="0" Maximum="80" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding StraightM}" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="2" IsEnabled="{Binding TurnEnabled}">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Right" Classes="value"><TextBlock Text="{Binding TurnDeg, StringFormat='{}{0:0}°'}" /></Border>
+                                <TextBlock Text="{app:T 'Giro'}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <Slider Minimum="5" Maximum="180" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding TurnDeg}" />
+                            <DockPanel Margin="0,8,0,0">
+                                <Border DockPanel.Dock="Right" Classes="value"><TextBlock Text="{Binding RadiusM, StringFormat='{}{0:0} m'}" /></Border>
+                                <TextBlock Text="{app:T 'Radio del giro'}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <Slider Minimum="8" Maximum="60" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding RadiusM}" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="2" IsEnabled="{Binding CanEdit}">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Right" Classes="value"><TextBlock Text="{Binding FinalStraightM, StringFormat='{}{0:0} m'}" /></Border>
+                                <TextBlock Text="{app:T 'Tramo final recto'}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <Slider Minimum="0" Maximum="60" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding FinalStraightM}" />
+                        </StackPanel>
+
+                        <Expander Header="{app:T 'Atajos y cómo funciona'}" HorizontalAlignment="Stretch" Padding="10,8">
+                            <StackPanel Spacing="6">
+                                <TextBlock FontSize="12" Foreground="{StaticResource TextBody}" TextWrapping="Wrap"
+                                           Text="{app:T 'Mouse: arrastra el avión de color hasta donde quieres que quede y gíralo con la rueda (o arrastra con el botón derecho). Ctrl + rueda: zoom. Rueda apretada y arrastrar: mover el mapa.'}" />
+                                <TextBlock FontSize="12" Foreground="{StaticResource TextBody}" TextWrapping="Wrap"
+                                           Text="{app:T 'Teclado: ← → el giro, ↑ ↓ el tramo recto, Enter inicia, Esc cierra (o detiene el pushback).'}" />
+                                <TextBlock FontSize="12" Foreground="{StaticResource TextBody}" TextWrapping="Wrap"
+                                           Text="{app:T 'El personal de tierra te habla en el chat: suelta el freno de estacionamiento cuando te lo pida y ponlo cuando te diga que terminó. Al terminar, esta ventana se cierra sola.'}" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

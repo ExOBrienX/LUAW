@@ -1,0 +1,359 @@
+{
+  "airport": "SCEL",
+  "source": {
+    "title": "Wikipedia (en): Arturo Merino Benítez International Airport — Airlines and destinations",
+    "url": "https://en.wikipedia.org/wiki/Arturo_Merino_Ben%C3%ADtez_International_Airport",
+    "revision": 1381206791,
+    "retrieved": "2026-10-28"
+  },
+  "reviewed": true,
+  "notes": "Aerolíneas y destinos copiados de la fuente. Los códigos OACI de aerolínea los agregó Claude: icaoVerified=true si las liveries FSLTL/AIG instaladas con ese código llevan el nombre de la aerolínea en el título. Los códigos OACI de los destinos se agregan y se verifican contra el simulador cuando se necesiten (etapa 3). types vacío = el motor usa los tipos de las liveries instaladas de la aerolínea (aproximado). Revisión 2026-10-28: aerolíneas y destinos comparados con la versión actual de la fuente (se agregó Fortaleza a LATAM Brasil). Los códigos DWI, LAP, LVL, SKX y DAE se verificaron contra registros de operadores, no contra liveries instaladas. Los vuelos 'future' no se generan antes de su fecha.",
+  "airlines": [
+    {
+      "name": "Aerolíneas Argentinas",
+      "icao": "ARG",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Buenos Aires–Aeroparque", "Mendoza" ],
+      "seasonal": []
+    },
+    {
+      "name": "Aeroméxico",
+      "icao": "AMX",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Mexico City–Benito Juárez" ],
+      "seasonal": []
+    },
+    {
+      "name": "Air Canada",
+      "icao": "ACA",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [],
+      "seasonal": [ "Montréal–Trudeau", "Toronto–Pearson" ]
+    },
+    {
+      "name": "Air France",
+      "icao": "AFR",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Paris–Charles de Gaulle" ],
+      "seasonal": []
+    },
+    {
+      "name": "American Airlines",
+      "icao": "AAL",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Miami" ],
+      "seasonal": [ "Dallas/Fort Worth" ]
+    },
+    {
+      "name": "Arajet",
+      "icao": "DWI",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Punta Cana" ],
+      "seasonal": []
+    },
+    {
+      "name": "Avianca",
+      "icao": "AVA",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Bogotá" ],
+      "seasonal": [ "Cartagena" ]
+    },
+    {
+      "name": "Boliviana de Aviación",
+      "icao": "BOV",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "La Paz", "Santa Cruz" ],
+      "seasonal": []
+    },
+    {
+      "name": "British Airways",
+      "icao": "BAW",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "London–Heathrow" ],
+      "seasonal": [],
+      "future": [ "Buenos Aires–Ezeiza (begins 28 March 2027)" ]
+    },
+    {
+      "name": "Copa Airlines",
+      "icao": "CMP",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Panama City–Tocumen" ],
+      "seasonal": []
+    },
+    {
+      "name": "Delta Air Lines",
+      "icao": "DAL",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Atlanta" ],
+      "seasonal": []
+    },
+    {
+      "name": "Iberia",
+      "icao": "IBE",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Madrid" ],
+      "seasonal": []
+    },
+    {
+      "name": "JetSmart Argentina",
+      "icao": "JES",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Buenos Aires–Aeroparque", "Buenos Aires–Ezeiza", "Mendoza" ],
+      "seasonal": []
+    },
+    {
+      "name": "JetSmart Chile",
+      "icao": "JAT",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Antofagasta", "Arica", "Bogotá", "Buenos Aires–Ezeiza", "Calama", "Cali", "Castro", "Concepción", "Copiapó", "Florianópolis", "Iquique", "La Serena", "Lima", "Medellín–JMC", "Montevideo", "Puerto Montt", "Punta Arenas", "Rio de Janeiro–Galeão", "Temuco", "Trujillo" ],
+      "seasonal": [ "Curitiba", "Foz do Iguaçu", "Puerto Natales" ]
+    },
+    {
+      "name": "KLM",
+      "icao": "KLM",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Amsterdam", "Buenos Aires–Ezeiza" ],
+      "seasonal": []
+    },
+    {
+      "name": "LATAM Brasil",
+      "icao": "TAM",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Brasília", "Fortaleza", "Montevideo", "Recife", "São Paulo–Guarulhos" ],
+      "seasonal": []
+    },
+    {
+      "name": "LATAM Chile",
+      "icao": "LAN",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Antofagasta", "Arica", "Auckland", "Belo Horizonte–Confins", "Bogotá", "Buenos Aires–Aeroparque", "Buenos Aires–Ezeiza", "Calama", "Cancún", "Concepción", "Copiapó", "Córdoba (AR)", "Coyhaique", "Curitiba", "Easter Island", "Florianópolis", "Iquique", "La Paz", "La Serena", "Lima", "Los Angeles", "Madrid", "Melbourne", "Mendoza", "Mexico City–Benito Juárez", "Miami", "Montevideo", "Neuquén", "New York–JFK", "Osorno", "Porto Alegre", "Puerto Montt", "Punta Arenas", "Punta Cana", "Rio de Janeiro–Galeão", "Recife", "Santa Cruz de la Sierra–Viru Viru", "São Paulo–Guarulhos", "Stanley–Mount Pleasant", "Sydney–Kingsford Smith", "Temuco" ],
+      "seasonal": [ "Orlando", "Puerto Natales", "Punta del Este", "San Carlos de Bariloche" ],
+      "future": [ "Caracas (resumes 3 January 2027)", "Quito (resumes 1 December 2026)" ]
+    },
+    {
+      "name": "LATAM Ecuador",
+      "icao": "LNE",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Guayaquil" ],
+      "seasonal": []
+    },
+    {
+      "name": "LATAM Paraguay",
+      "icao": "LAP",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Asunción" ],
+      "seasonal": []
+    },
+    {
+      "name": "LATAM Perú",
+      "icao": "LPE",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Cusco", "Lima" ],
+      "seasonal": []
+    },
+    {
+      "name": "Level",
+      "icao": "LVL",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Barcelona" ],
+      "seasonal": []
+    },
+    {
+      "name": "Qantas",
+      "icao": "QFA",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Sydney–Kingsford Smith" ],
+      "seasonal": []
+    },
+    {
+      "name": "Sky Airline",
+      "icao": "SKU",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Antofagasta", "Arica", "Buenos Aires–Aeroparque", "Buenos Aires–Ezeiza", "Calama", "Castro", "Concepción", "Copiapó", "Coyhaique", "Florianópolis", "Iquique", "La Serena", "Lima", "Mendoza", "Montevideo", "Osorno", "Puerto Montt", "Punta Arenas", "Rio de Janeiro–Galeão", "Salvador da Bahia", "São Paulo–Guarulhos", "Temuco", "Valdivia" ],
+      "seasonal": [ "Belo Horizonte–Confins", "Brasília", "El Calafate", "Puerto Natales", "San Carlos de Bariloche" ]
+    },
+    {
+      "name": "Sky Airline Peru",
+      "icao": "SKX",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [],
+      "seasonal": [],
+      "future": [ "Cusco (begins 3 January 2027)" ]
+    },
+    {
+      "name": "Turkish Airlines",
+      "icao": "THY",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [ "Istanbul", "São Paulo–Guarulhos" ],
+      "seasonal": []
+    },
+    {
+      "name": "United Airlines",
+      "icao": "UAL",
+      "icaoVerified": true,
+      "cargo": false,
+      "types": [],
+      "destinations": [],
+      "seasonal": [ "Houston–Intercontinental" ]
+    },
+
+    {
+      "name": "Atlas Air",
+      "icao": "GTI",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Campinas", "Miami" ],
+      "seasonal": []
+    },
+    {
+      "name": "Avianca Cargo",
+      "icao": "TPA",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Bogotá", "Ciudad del Este" ],
+      "seasonal": []
+    },
+    {
+      "name": "Cargolux",
+      "icao": "CLX",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Aguadilla", "Amsterdam", "Bogotá", "Luxembourg" ],
+      "seasonal": []
+    },
+    {
+      "name": "China Cargo Airlines",
+      "icao": "CKK",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Los Angeles" ],
+      "seasonal": []
+    },
+    {
+      "name": "DHL Aero Expreso",
+      "icao": "DAE",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Miami", "Panama City–Tocumen" ],
+      "seasonal": []
+    },
+    {
+      "name": "Ethiopian Airlines Cargo",
+      "icao": "ETH",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Addis Ababa", "Campinas", "Lagos" ],
+      "seasonal": []
+    },
+    {
+      "name": "FedEx Express",
+      "icao": "FDX",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Buenos Aires–Ezeiza", "Memphis" ],
+      "seasonal": []
+    },
+    {
+      "name": "Korean Air Cargo",
+      "icao": "KAL",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Campinas", "Seoul–Incheon" ],
+      "seasonal": []
+    },
+    {
+      "name": "LATAM Cargo Chile",
+      "icao": "LCO",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Amsterdam", "Brussels", "Buenos Aires–Ezeiza", "Campinas", "Miami", "Quito" ],
+      "seasonal": []
+    },
+    {
+      "name": "Lufthansa Cargo",
+      "icao": "GEC",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Frankfurt" ],
+      "seasonal": []
+    },
+    {
+      "name": "UPS Airlines",
+      "icao": "UPS",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Buenos Aires–Ezeiza", "Campinas" ],
+      "seasonal": []
+    },
+    {
+      "name": "Western Global Airlines",
+      "icao": "WGN",
+      "icaoVerified": true,
+      "cargo": true,
+      "types": [],
+      "destinations": [ "Miami" ],
+      "seasonal": []
+    }
+  ]
+} 

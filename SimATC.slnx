@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SimATC.App/SimATC.App.csproj" />
+    <Project Path="src/SimATC.Core/SimATC.Core.csproj" />
+    <Project Path="src/SimATC.Sim/SimATC.Sim.csproj" />
+    <Project Path="src/SimATC.Voice/SimATC.Voice.csproj" />
+    <Project Path="src/SimATC.KokoroHost/SimATC.KokoroHost.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SimATC.Benchmarks/SimATC.Benchmarks.csproj" />
+    <Project Path="tests/SimATC.Core.Tests/SimATC.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/SimATC.Headless/SimATC.Headless.csproj" />
+    <Project Path="tools/SimATC.Probe/SimATC.Probe.csproj" />
+  </Folder>
+</Solution>

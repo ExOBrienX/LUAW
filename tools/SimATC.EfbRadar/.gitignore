@@ -1,0 +1,11 @@
+# Copiados del SDK de MSFS 2024 por setup.ps1 (no se redistribuyen)
+PackageSources/efb_api/
+PackageSources/vendor/
+PackageDefinitions/simatc-efb-radar/ContentInfo/thumbnail.jpg
+# Generados
+PackageSources/RadarApp/node_modules/
+PackageSources/RadarApp/dist/
+Packages/
+PackagesMetadata/
+_PackageInt/
+SimATCRadarProject.xml.user

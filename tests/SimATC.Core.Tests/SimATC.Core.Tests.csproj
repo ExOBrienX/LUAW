@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- xunit.v3: los proyectos de test son ejecutables. -->
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Caché real de aeropuertos leída del simulador (TESTING.md §2). -->
+    <None Include="Data\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Listas de rutas reales del repo (data/routes). -->
+    <None Include="..\..\data\routes\*.json" Link="Data\routes\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Decoración de aviación general (data/fleet). -->
+    <None Include="..\..\data\fleet\*.json" Link="Data\fleet\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Fraseología (data/phraseology). -->
+    <None Include="..\..\data\phraseology\*.json" Link="Data\phraseology\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Datos ATC por aeropuerto (data/atc). -->
+    <None Include="..\..\data\atc\*.json" Link="Data\atc\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Telefonía de aerolíneas (data/airlines.json). -->
+    <None Include="..\..\data\airlines.json" Link="Data\airlines.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\centers.json" Link="Data\centers.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Base mundial de rutas y aeropuertos (standing-data, data/world). -->
+    <None Include="..\..\data\world\*.*" Link="Data\world\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Mapa base del radar (Natural Earth, data/map). -->
+    <None Include="..\..\data\vatspy\*.*" Link="Data\vatspy\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\map\*.json" Link="Data\map\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SimATC.Core\SimATC.Core.csproj" />
+    <ProjectReference Include="..\..\src\SimATC.Voice\SimATC.Voice.csproj" />
+    <ProjectReference Include="..\..\src\SimATC.KokoroHost\SimATC.KokoroHost.csproj" />
+  </ItemGroup>
+</Project>

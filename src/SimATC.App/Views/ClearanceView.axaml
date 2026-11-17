@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:app="using:SimATC.App"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SimATC.App.ViewModels"
+             x:Class="SimATC.App.Views.ClearanceView"
+             x:DataType="vm:CommsViewModel">
+    <!--
+    Tu autorización (estilos de CommsPanel): en la columna de la página Comunicaciones, la ficha completa ("detailed"); en
+    el panel del radar, una línea con "Detalles" para desplegarla ("brief"); en el panel compacto, solo la línea.
+    -->
+    <StackPanel Spacing="6">
+        <DockPanel Classes="summary">
+            <ToggleButton DockPanel.Dock="Right" Classes="small expand" IsChecked="{Binding ClearanceExpanded}" Padding="8,1"
+                          VerticalAlignment="Center" ToolTip.Tip="{app:T 'Muestra u oculta la autorización completa'}">
+                <Panel>
+                    <TextBlock Text="{app:T 'Detalles ▾'}" IsVisible="{Binding !ClearanceExpanded}" FontSize="11.5" />
+                    <TextBlock Text="{app:T 'Ocultar ▴'}" IsVisible="{Binding ClearanceExpanded}" FontSize="11.5" />
+                </Panel>
+            </ToggleButton>
+            <WrapPanel>
+                <TextBlock Text="{Binding Clearance.Line, FallbackValue=''}" Classes="mono" Foreground="{StaticResource TextMain}"
+                           VerticalAlignment="Center" Margin="0,0,8,0" TextWrapping="Wrap" />
+                <TextBlock Text="✓" Foreground="{StaticResource Ok}" VerticalAlignment="Center" IsVisible="{Binding SquawkSet}"
+                           ToolTip.Tip="{app:T 'El squawk ya está en el transponder'}" Margin="0,0,8,0" />
+                <TextBlock Text="{app:T 'squawk sin poner'}" FontSize="11.5" Foreground="{StaticResource Warn}" VerticalAlignment="Center"
+                           IsVisible="{Binding SquawkPending}" ToolTip.Tip="{Binding TransponderText}" />
+            </WrapPanel>
+        </DockPanel>
+        <StackPanel Classes="details" Spacing="6">
+            <TextBlock Classes="label" Text="{app:T 'Tu autorización'}" />
+            <TextBlock Text="{Binding Clearance.Route, FallbackValue=''}" Foreground="{StaticResource TextMain}" TextWrapping="Wrap" />
+            <!-- Squawk: ✓ si ya está en el transponder; si no, qué tiene puesto y el botón para ponerlo. -->
+            <WrapPanel>
+                <TextBlock VerticalAlignment="Center" Margin="0,0,10,0">
+                    <Run Text="{app:T 'Squawk '}" Foreground="{StaticResource TextDim}" />
+                    <Run Text="{Binding Clearance.SquawkText, FallbackValue=''}" Foreground="{StaticResource Freq}" FontFamily="{StaticResource Mono}" />
+                </TextBlock>
+                <TextBlock Text="{Binding TransponderText}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12"
+                           Foreground="{StaticResource Ok}" IsVisible="{Binding SquawkSet}" />
+                <TextBlock Text="{Binding TransponderText}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12"
+                           Foreground="{StaticResource Warn}" IsVisible="{Binding SquawkPending}" />
+            </WrapPanel>
+            <!-- La frecuencia de salida es un dato hasta que toca cambiarse; recién ahí aparece el botón. -->
+            <WrapPanel IsVisible="{Binding Clearance.Next, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}">
+                <TextBlock VerticalAlignment="Center" Margin="0,0,10,0" TextWrapping="Wrap">
+                    <Run Text="{app:T 'Después de despegar: '}" Foreground="{StaticResource TextDim}" />
+                    <Run Text="{Binding Clearance.Next.Label, FallbackValue=''}" Foreground="{StaticResource TextMain}" />
+                </TextBlock>
+                <Button Classes="small" Content="{app:T 'Sintonizar'}" Command="{Binding TuneCommand}" CommandParameter="{Binding Clearance.Next}" Padding="8,2"
+                        IsVisible="{Binding ShowNextTune}" />
+            </WrapPanel>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

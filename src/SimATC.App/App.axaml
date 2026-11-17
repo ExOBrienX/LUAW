@@ -1,0 +1,275 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="SimATC.App.App"
+             RequestedThemeVariant="Dark">
+    <!-- Estilo tipo aviónica (boceto aprobado de la etapa 4): fondo azul noche, celeste para lo seleccionado y el ATC,
+         ámbar para esperas, verde para el piloto, magenta para su ruta. -->
+    <Application.Resources>
+        <SolidColorBrush x:Key="BgDeep" Color="#0B121B" />
+        <SolidColorBrush x:Key="BgRadar" Color="#0E1621" />
+        <SolidColorBrush x:Key="BgPanel" Color="#101A26" />
+        <SolidColorBrush x:Key="BgRaised" Color="#151E2B" />
+        <SolidColorBrush x:Key="Line" Color="#1E2A3A" />
+        <SolidColorBrush x:Key="LineStrong" Color="#2A3A4E" />
+        <SolidColorBrush x:Key="TextMain" Color="#E6EDF5" />
+        <SolidColorBrush x:Key="TextBody" Color="#C8D1DC" />
+        <SolidColorBrush x:Key="TextDim" Color="#8A97A8" />
+        <SolidColorBrush x:Key="TextFaint" Color="#5D6B7E" />
+        <SolidColorBrush x:Key="Accent" Color="#4CC2FF" />
+        <SolidColorBrush x:Key="AccentBg" Color="#153246" />
+        <SolidColorBrush x:Key="AccentLine" Color="#2F6A8E" />
+        <SolidColorBrush x:Key="Freq" Color="#FFD27A" />
+        <SolidColorBrush x:Key="Ok" Color="#7BE3A6" />
+        <SolidColorBrush x:Key="Warn" Color="#F5A524" />
+        <SolidColorBrush x:Key="AtcBubble" Color="#12283A" />
+        <SolidColorBrush x:Key="PilotBubble" Color="#14281E" />
+        <SolidColorBrush x:Key="OtherBubble" Color="#162130" />
+        <FontFamily x:Key="Mono">Cascadia Mono, Consolas, monospace</FontFamily>
+
+        <!-- Los controles del tema Fluent con la paleta de la app: botones, casillas, listas y campos de texto. -->
+        <Color x:Key="SystemAccentColor">#2F9FDB</Color>
+        <Color x:Key="SystemAccentColorDark1">#2A8FC6</Color>
+        <Color x:Key="SystemAccentColorDark2">#237AAA</Color>
+        <Color x:Key="SystemAccentColorDark3">#1C658D</Color>
+        <Color x:Key="SystemAccentColorLight1">#4CC2FF</Color>
+        <Color x:Key="SystemAccentColorLight2">#6FCFFF</Color>
+        <Color x:Key="SystemAccentColorLight3">#93DBFF</Color>
+        <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
+        <SolidColorBrush x:Key="ButtonBackground" Color="#1A2535" />
+        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#223249" />
+        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#162030" />
+        <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#131B27" />
+        <SolidColorBrush x:Key="ButtonForeground" Color="#DCE5EF" />
+        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#C8D1DC" />
+        <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="#5D6B7E" />
+        <SolidColorBrush x:Key="ButtonBorderBrush" Color="#2A3A4E" />
+        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#3D7BA3" />
+        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#2F6A8E" />
+        <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="#1E2A3A" />
+        <SolidColorBrush x:Key="ToggleButtonBackground" Color="#1A2535" />
+        <SolidColorBrush x:Key="ToggleButtonBackgroundPointerOver" Color="#223249" />
+        <SolidColorBrush x:Key="ToggleButtonBackgroundPressed" Color="#162030" />
+        <SolidColorBrush x:Key="ToggleButtonForeground" Color="#DCE5EF" />
+        <SolidColorBrush x:Key="ToggleButtonForegroundPointerOver" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="ToggleButtonBorderBrush" Color="#2A3A4E" />
+        <SolidColorBrush x:Key="ToggleButtonBorderBrushPointerOver" Color="#3D7BA3" />
+        <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="#153246" />
+        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#1B405A" />
+        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#153246" />
+        <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="#E6EDF5" />
+        <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="#2F6A8E" />
+        <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="#4CC2FF" />
+        <SolidColorBrush x:Key="TextControlBackground" Color="#0B121B" />
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#0E1621" />
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#0B121B" />
+        <SolidColorBrush x:Key="TextControlBorderBrush" Color="#2A3A4E" />
+        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#3D7BA3" />
+        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#4CC2FF" />
+        <SolidColorBrush x:Key="ComboBoxBackground" Color="#151E2B" />
+        <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#1A2535" />
+        <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#2A3A4E" />
+        <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#3D7BA3" />
+        <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#131C29" />
+        <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#2A3A4E" />
+        <SolidColorBrush x:Key="FlyoutPresenterBackground" Color="#131C29" />
+        <SolidColorBrush x:Key="FlyoutBorderThemeBrush" Color="#2A3A4E" />
+        <SolidColorBrush x:Key="ExpanderHeaderBackground" Color="#151E2B" />
+        <SolidColorBrush x:Key="ExpanderHeaderBackgroundPointerOver" Color="#1A2535" />
+        <SolidColorBrush x:Key="ExpanderHeaderBackgroundPressed" Color="#162030" />
+        <SolidColorBrush x:Key="ExpanderHeaderBorderBrush" Color="#2A3A4E" />
+        <SolidColorBrush x:Key="ExpanderHeaderBorderBrushPointerOver" Color="#3D7BA3" />
+        <SolidColorBrush x:Key="ExpanderHeaderForeground" Color="#DCE5EF" />
+        <SolidColorBrush x:Key="ExpanderHeaderForegroundPointerOver" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="ExpanderContentBackground" Color="#101A26" />
+        <SolidColorBrush x:Key="ExpanderContentBorderBrush" Color="#2A3A4E" />
+        <SolidColorBrush x:Key="ToolTipBackground" Color="#1A2535" />
+        <SolidColorBrush x:Key="ToolTipBorderBrush" Color="#2A3A4E" />
+        <SolidColorBrush x:Key="ToolTipForeground" Color="#DCE5EF" />
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <!-- Botones: el cambio de color al pasar el mouse es suave, no un salto. -->
+        <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter, ToggleButton /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <!-- La acción principal de una pantalla (iniciar tráfico, aceptar): celeste lleno. -->
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#1F6FA0" />
+            <Setter Property="BorderBrush" Value="#3D9FD6" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#2885BE" />
+            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1A5F8A" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#16283A" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+        </Style>
+        <!-- Una pantalla aparece con un fundido corto al elegirla. -->
+        <Style Selector=":is(Control).page[IsVisible=true]">
+            <Style.Animations>
+                <Animation Duration="0:0:0.16" Easing="CubicEaseOut" FillMode="None">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <!-- Avisos modales: el fondo se oscurece con un fundido y la tarjeta sube un poco al aparecer. -->
+        <Style Selector="Border.scrim[IsVisible=true]">
+            <Style.Animations>
+                <Animation Duration="0:0:0.16" FillMode="None">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <Style Selector="Border.scrim[IsVisible=true] > Border">
+            <Style.Animations>
+                <Animation Duration="0:0:0.22" Easing="CubicEaseOut" FillMode="None">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Margin" Value="0,24,0,-24" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Margin" Value="0" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <!-- La acción que borra algo: rojo. -->
+        <Style Selector="Button.primary.danger">
+            <Setter Property="Background" Value="#8E3030" />
+            <Setter Property="BorderBrush" Value="#C25555" />
+        </Style>
+        <Style Selector="Button.primary.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#A83B3B" />
+            <Setter Property="BorderBrush" Value="#E07070" />
+        </Style>
+        <Style Selector="Button.primary.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#7A2828" />
+        </Style>
+
+        <!-- Pantalla sin contenido todavía: mensaje centrado y tenue, no una hoja en blanco. -->
+        <Style Selector="Border.empty">
+            <Setter Property="Background" Value="{StaticResource BgPanel}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="28,36" />
+        </Style>
+
+        <!-- Navegación lateral -->
+        <Style Selector="Button.nav">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="#AEB9C7" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Button.nav.active">
+            <Setter Property="Background" Value="{StaticResource AccentBg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentLine}" />
+            <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+        </Style>
+        <Style Selector="Button.nav.active /template/ ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentBg}" />
+        </Style>
+
+        <!-- Tarjetas y títulos -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{StaticResource BgPanel}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="16" />
+        </Style>
+        <Style Selector="TextBlock.h1">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+        </Style>
+        <Style Selector="TextBlock.h2">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+        </Style>
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+        </Style>
+
+        <!-- Sugerencias del panel de comunicaciones -->
+        <Style Selector="Button.suggestion">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Background" Value="{StaticResource BgRadar}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <!-- Acción pendiente del piloto (sintonizar, poner el squawk): destacada, y parpadea tres veces al aparecer
+             (no queda animando: bajo consumo). -->
+        <Style Selector="Button.action">
+            <Setter Property="Padding" Value="11,5" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Background" Value="{StaticResource AccentBg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+        </Style>
+        <Style Selector="Button.action:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1D4560" />
+            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+            <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+        </Style>
+        <Style Selector="Button.action.pending">
+            <Style.Animations>
+                <Animation Duration="0:0:0.45" IterationCount="6" PlaybackDirection="Alternate" FillMode="None">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="0.45" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <Style Selector="Button.suggestion.selected">
+            <Setter Property="Background" Value="#12283A" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentLine}" />
+        </Style>
+    </Application.Styles>
+</Application>

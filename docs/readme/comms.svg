@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 330" width="1200" height="330" role="img" aria-label="Ejemplo de comunicación: autorización IFR con Santiago Delivery y su colación">
+  <defs>
+    <clipPath id="c"><rect width="1200" height="330" rx="16"/></clipPath>
+    <style>
+      .mono { font-family: ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, monospace; }
+      .sans { font-family: Inter, "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+      .m { opacity: 0; animation: 16s infinite both }
+      .m1 { animation-name: a1 } .m2 { animation-name: a2 } .m3 { animation-name: a3 } .m4 { animation-name: a4 }
+      @keyframes a1 { 0%,2% { opacity: 0; transform: translateY(8px) } 6%,94% { opacity: 1; transform: none } 100% { opacity: 0 } }
+      @keyframes a2 { 0%,20% { opacity: 0; transform: translateY(8px) } 24%,94% { opacity: 1; transform: none } 100% { opacity: 0 } }
+      @keyframes a3 { 0%,44% { opacity: 0; transform: translateY(8px) } 48%,94% { opacity: 1; transform: none } 100% { opacity: 0 } }
+      @keyframes a4 { 0%,66% { opacity: 0; transform: translateY(8px) } 70%,94% { opacity: 1; transform: none } 100% { opacity: 0 } }
+      .tx { animation: tx 1s steps(1) infinite } @keyframes tx { 50% { opacity: .25 } }
+      .wave rect { animation: w 0.9s ease-in-out infinite; transform-box: fill-box; transform-origin: center }
+      @keyframes w { 0%,100% { transform: scaleY(.3) } 50% { transform: scaleY(1) } }
+    </style>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="1200" height="330" fill="#0A121D"/>
+    <!-- Barra de la radio -->
+    <rect width="1200" height="46" fill="#0E1826"/>
+    <line x1="0" y1="46" x2="1200" y2="46" stroke="#1E2A3A"/>
+    <g class="mono" font-size="14">
+      <text x="24" y="29" fill="#E6EDF5" font-weight="700">COM1</text>
+      <text x="76" y="29" fill="#F5A524">136.700</text>
+      <text x="150" y="29" fill="#C9D4E2" class="sans">Santiago Delivery</text>
+      <text x="282" y="29" fill="#3DDC84" class="tx" font-size="11">TX</text>
+    </g>
+    <g class="wave" fill="#4CC2FF" opacity=".8">
+      <rect x="1100" y="14" width="3" height="18"/><rect x="1108" y="14" width="3" height="18" style="animation-delay:.1s"/>
+      <rect x="1116" y="14" width="3" height="18" style="animation-delay:.2s"/><rect x="1124" y="14" width="3" height="18" style="animation-delay:.3s"/>
+      <rect x="1132" y="14" width="3" height="18" style="animation-delay:.4s"/><rect x="1140" y="14" width="3" height="18" style="animation-delay:.5s"/>
+      <rect x="1148" y="14" width="3" height="18" style="animation-delay:.6s"/><rect x="1156" y="14" width="3" height="18" style="animation-delay:.7s"/>
+    </g>
+
+    <g class="sans" font-size="16">
+      <!-- Piloto -->
+      <g class="m m1">
+        <rect x="560" y="64" width="560" height="44" rx="12" fill="#12301F"/>
+        <text x="578" y="92" fill="#DFF5E8">Santiago Delivery, LAN205, request IFR clearance to SCIE</text>
+        <circle cx="1148" cy="86" r="16" fill="#1F7A45"/><text x="1148" y="90" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">TÚ</text>
+      </g>
+      <!-- Delivery -->
+      <g class="m m2">
+        <circle cx="52" cy="150" r="16" fill="#7C5CE0"/><text x="52" y="154" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">DEL</text>
+        <rect x="80" y="122" width="690" height="62" rx="12" fill="#0F1B2A" stroke="#4CC2FF"/>
+        <text x="98" y="148" fill="#E6EDF5">LAN205, cleared to SCIE, runway 17L, squawk 4707,</text>
+        <text x="98" y="170" fill="#E6EDF5">after departure contact Santiago Approach 119.7</text>
+      </g>
+      <!-- Colación -->
+      <g class="m m3">
+        <rect x="450" y="198" width="670" height="62" rx="12" fill="#12301F"/>
+        <text x="468" y="224" fill="#DFF5E8">Cleared to SCIE, runway 17L, squawk 4707, after departure</text>
+        <text x="468" y="246" fill="#DFF5E8">Santiago Approach 119.7, LAN205</text>
+        <text x="1102" y="252" text-anchor="end" font-size="11" fill="#7BE3A6">✓ colación correcta</text>
+        <circle cx="1148" cy="229" r="16" fill="#1F7A45"/><text x="1148" y="233" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">TÚ</text>
+      </g>
+      <g class="m m4">
+        <circle cx="52" cy="294" r="16" fill="#7C5CE0"/><text x="52" y="298" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">DEL</text>
+        <rect x="80" y="274" width="270" height="40" rx="12" fill="#0F1B2A" stroke="#4CC2FF"/>
+        <text x="98" y="300" fill="#E6EDF5">LAN205, readback correct</text>
+      </g>
+    </g>
+    <rect x=".75" y=".75" width="1198.5" height="328.5" rx="16" fill="none" stroke="#1E2A3A" stroke-width="1.5"/>
+  </g>
+</svg>

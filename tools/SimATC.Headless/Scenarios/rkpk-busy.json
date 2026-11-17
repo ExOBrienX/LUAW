@@ -1,0 +1,6 @@
+{
+  "airport": "RKPK", "seed": 11, "hours": 1.5, "runways": ["auto"], "windFromDeg": 350, "windKt": 8,
+  "departures": [],
+  "flow": { "startS": 0, "intervalS": 150, "maxOnGround": 12 },
+  "arrivals": { "startS": 30, "intervalS": 95, "runways": ["auto"] }
+}

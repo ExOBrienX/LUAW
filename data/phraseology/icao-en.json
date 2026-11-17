@@ -1,0 +1,771 @@
+{
+  "language": "en",
+  "source": "OACI Doc 4444 cap. 12 (vía CAP 413 ed. 24, UK CAA, 1 JUL 2026: §2.67-2.68 autorizaciones, §4.9-4.11 puesta en marcha y pushback, §4.12-4.16 rodaje, §4.17-4.32 alineación y despegue, cap. 5 ascensos) y AIP-CHILE AD 2 SCEL 3.5 (primer contacto con Approach). Revisado por Claude el 2026-10-30.",
+  "notes": "Cada plantilla tiene una o más variantes equivalentes y aceptadas; el ATC elige una al azar (RF-35b). Los campos entre llaves se reemplazan con datos; nunca se escribe un valor fijo. {station} es el distintivo de la dependencia; {callsign} el del avión.",
+  "templates": {
+    "atc.clearance": {
+      "ref": "CAP 413 §2.67-2.68; AIP SCEL AD 2.22 3.4 (cambio a Approach en la autorización)",
+      "variants": [ "{callsign}, cleared to {destination} via {sid} departure, runway {runway}, climb {level}, squawk {squawk}{after_departure}", "{callsign}, {station}, cleared to {destination}, {sid} departure, runway {runway}, climb {level}, squawk {squawk}{after_departure}" ]
+    },
+    "atc.clearance_no_level": {
+      "ref": "CAP 413 §2.68 (autorización sin nivel: la SID no tiene restricciones y el archivo ATC no da nivel; no se inventa)",
+      "variants": [ "{callsign}, cleared to {destination} via {sid} departure, runway {runway}, squawk {squawk}{after_departure}" ]
+    },
+    "atc.clearance_no_sid": {
+      "ref": "CAP 413 §2.68 (el aeropuerto no tiene SID en el simulador)",
+      "variants": [ "{callsign}, cleared to {destination}, runway {runway}, climb {level}, squawk {squawk}{after_departure}" ]
+    },
+    "atc.clearance_no_sid_no_level": {
+      "ref": "CAP 413 §2.68",
+      "variants": [ "{callsign}, cleared to {destination}, runway {runway}, squawk {squawk}{after_departure}" ]
+    },
+    "atc.clearance.after_departure": {
+      "ref": "AIP SCEL AD 2.22 3.4",
+      "variants": [ ", after departure contact {next_station} {frequency}" ]
+    },
+    "atc.readback_correct": {
+      "ref": "CAP 413 §2.68 (ejemplos: \"BIGJET 347, correct\"); OACI \"READBACK CORRECT\"",
+      "variants": [ "{callsign}, readback correct", "{callsign}, correct" ]
+    },
+    "atc.startup_approved": {
+      "ref": "CAP 413 §4.10",
+      "variants": [ "{callsign}, {station}, start up approved", "{callsign}, start up approved" ]
+    },
+    "atc.pushback_approved": {
+      "ref": "CAP 413 §4.11",
+      "variants": [ "{callsign}, pushback approved", "{callsign}, {station}, pushback approved" ]
+    },
+    "atc.pushback_delay": {
+      "ref": "CAP 413 §4.11",
+      "variants": [ "{callsign}, negative, expect {minutes} minute delay due traffic" ]
+    },
+    "atc.taxi": {
+      "ref": "CAP 413 §4.12-4.16",
+      "variants": [ "{callsign}, taxi to holding point runway {runway} via {route}", "{callsign}, taxi holding point runway {runway} via {route}", "{callsign}, runway {runway}, taxi to holding point via {route}" ]
+    },
+    "atc.taxi_no_route": {
+      "ref": "CAP 413 §4.12 (límite de autorización; las calles del simulador no tienen nombre)",
+      "variants": [ "{callsign}, taxi to holding point runway {runway}" ]
+    },
+    "atc.hold_short": {
+      "ref": "REQUIREMENTS §8.3; CAP 413 §4.15",
+      "variants": [ "{callsign}, hold short of runway {runway}", "{callsign}, hold short runway {runway}" ]
+    },
+    "atc.hold_short_queue": {
+      "ref": "CAP 413 ed. 24 §4.25 (\"one aircraft to depart before you\") con la espera de §4.15",
+      "variants": [ "{callsign}, hold short runway {runway}, {aircraft} to depart before you" ]
+    },
+    "atc.hold_short_traffic": {
+      "ref": "LUAW (no oficial): la espera de CAP 413 §4.15 con el tráfico en la pista",
+      "variants": [ "{callsign}, hold short runway {runway}, traffic {traffic} on the runway", "{callsign}, hold short runway {runway}, {traffic} on the runway" ]
+    },
+    "atc.line_up_behind": {
+      "ref": "CAP 413 ed. 24 §4.33 (\"behind the departing DC9, line up Runway 26 behind\")",
+      "variants": [ "{callsign}, behind the departing {traffic}, line up runway {runway} behind" ]
+    },
+    "atc.line_up_behind_landing": {
+      "ref": "CAP 413 ed. 24 §4.33 (\"Behind the landing DC9, line up Runway 26 behind\"); ADR-095",
+      "variants": [ "{callsign}, behind the landing {traffic}, line up runway {runway} behind" ]
+    },
+    "atc.hold_position": {
+      "ref": "REQUIREMENTS §8.7; CAP 413 §4.15 (\"Hold position\")",
+      "variants": [ "{callsign}, hold position" ]
+    },
+    "atc.contact": {
+      "ref": "REQUIREMENTS §8.3; CAP 413 §4.32",
+      "variants": [ "{callsign}, contact {next_station} {frequency}", "{callsign}, contact {next_station} on {frequency}", "{callsign}, contact {next_station} {frequency}, good day" ]
+    },
+    "atc.line_up_and_wait": {
+      "ref": "CAP 413 §4.17 y §4.31 (\"line-up and wait runway 26\")",
+      "variants": [ "{callsign}, runway {runway}, line up and wait", "{callsign}, line up and wait runway {runway}" ]
+    },
+    "atc.cleared_for_takeoff": {
+      "ref": "CAP 413 §4.17 (pista antes de la autorización), §4.31-4.32; viento según Doc 4444",
+      "variants": [ "{callsign}, wind {wind}, runway {runway}, cleared for take-off", "{callsign}, runway {runway}, cleared for take-off, wind {wind}" ]
+    },
+    "atc.cleared_for_takeoff_no_wind": {
+      "ref": "CAP 413 §4.31-4.32 (sin viento medido no se inventa uno)",
+      "variants": [ "{callsign}, runway {runway}, cleared for take-off" ]
+    },
+    "atc.identified": {
+      "ref": "OACI Doc 4444 cap. 12 (\"IDENTIFIED\"); CAP 413 cap. 5 (ascensos)",
+      "variants": [ "{callsign}, {station}, identified, climb {level}", "{callsign}, identified, climb {level}" ]
+    },
+    "atc.identified_no_level": {
+      "ref": "OACI Doc 4444 cap. 12 (\"IDENTIFIED\"); se usa cuando la autorización no tiene nivel (no se inventa uno)",
+      "variants": [ "{callsign}, {station}, identified" ]
+    },
+    "atc.give_way": {
+      "ref": "CAP 413 ed. 24 cap. 4 (\"GIVE WAY TO (description of traffic)\"; ejemplo \"after the B747 passing left to right\")",
+      "variants": [ "{callsign}, give way to the {traffic} passing {direction}" ]
+    },
+    "atc.give_way_situation": {
+      "ref": "CAP 413 ed. 24 cap. 4 (\"GIVE WAY TO (description of traffic)\"; ejemplo \"give way to the Cherokee on taxiway Alpha\")",
+      "variants": [ "{callsign}, give way to the {traffic} {situation}" ]
+    },
+    "atc.caution_slower": {
+      "ref": "Doc 4444 12.3.4.7 cc) (\"[CAUTION] TAXI SLOWER [reason]\"); el orden con el tráfico es variante (§8.1)",
+      "variants": [ "{callsign}, caution, {traffic} ahead, taxi slower", "{callsign}, caution, {traffic} ahead of you, reduce taxi speed" ]
+    },
+    "atc.follow": {
+      "ref": "CAP 413 ed. 24 cap. 4 (\"FOLLOW (description of traffic)\"; ejemplo \"follow the Cherokee ahead\")",
+      "variants": [ "{callsign}, follow the {traffic} ahead" ]
+    },
+    "atc.continue_taxi": {
+      "ref": "LUAW (no oficial, §8.1): CAP 413 no tiene \"continue taxi\" (se repite la autorización); variante corta para no repetir la ruta",
+      "variants": [ "{callsign}, continue taxi", "{callsign}, continue taxiing" ]
+    },
+    "atc.continue_taxi_follow": {
+      "ref": "LUAW (no oficial, §8.1): CAP 413 no tiene \"continue taxi\" (se repite la autorización); variante corta para no repetir la ruta; \"FOLLOW (description)\" de CAP 413",
+      "variants": [ "{callsign}, continue taxi, follow the {traffic}", "{callsign}, follow the {traffic}, continue taxi" ]
+    },
+    "atc.standby": {
+      "ref": "OACI Doc 4444 cap. 12 (\"STANDBY\": espere, lo llamaré); REQUIREMENTS §8.3",
+      "variants": [ "{callsign}, standby" ]
+    },
+    "atc.say_again": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "{callsign}, say again" ]
+    },
+    "atc.say_again_unknown": {
+      "ref": "REQUIREMENTS §8.7 (cuando no se entendió el indicativo)",
+      "variants": [ "Station calling {station}, say again" ]
+    },
+    "atc.negative_correction": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "{callsign}, negative, {correction}" ]
+    },
+    "atc.read_back": {
+      "ref": "REQUIREMENTS §8.7; CAP 413 §2.69",
+      "variants": [ "{callsign}, read back {element}" ]
+    },
+    "atc.call": {
+      "ref": "REQUIREMENTS §8.7 y RF-33c (primer llamado sin respuesta: indicativo del avión y de la dependencia)",
+      "variants": [ "{callsign}, {station}" ]
+    },
+    "atc.how_do_you_read": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "{callsign}, {station}, how do you read?" ]
+    },
+    "element.destination": {
+      "ref": "REQUIREMENTS §8.7 (read back {element})",
+      "variants": [ "destination" ]
+    },
+    "element.sid": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "departure" ]
+    },
+    "element.runway": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "runway" ]
+    },
+    "element.level": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "level" ]
+    },
+    "element.squawk": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "squawk" ]
+    },
+    "element.frequency": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "frequency" ]
+    },
+    "element.callsign": {
+      "ref": "REQUIREMENTS §8.4 (siempre se termina con el indicativo)",
+      "variants": [ "callsign" ]
+    },
+    "correction.destination": {
+      "ref": "REQUIREMENTS §8.7 (negative, {instrucción corregida})",
+      "variants": [ "cleared to {destination}" ]
+    },
+    "correction.sid": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "{sid} departure" ]
+    },
+    "correction.runway": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "runway {runway}" ]
+    },
+    "correction.level": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "climb {level}" ]
+    },
+    "correction.squawk": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "squawk {squawk}" ]
+    },
+    "correction.frequency": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "contact {next_station} {frequency}" ]
+    },
+    "crew.connected": {
+      "ref": "REQUIREMENTS §8.9 (personal de tierra, no OACI)",
+      "variants": [ "Flight deck, ground. Tow bar connected, ready for pushback. Release parking brake." ]
+    },
+    "crew.pushing": {
+      "ref": "REQUIREMENTS §8.9",
+      "variants": [ "Brakes released, pushing back now." ]
+    },
+    "crew.start_engines": {
+      "ref": "REQUIREMENTS §8.9",
+      "variants": [ "Cleared to start engines." ]
+    },
+    "crew.complete": {
+      "ref": "REQUIREMENTS §8.9",
+      "variants": [ "Pushback complete. Set parking brake." ]
+    },
+    "crew.disconnect": {
+      "ref": "REQUIREMENTS §8.9",
+      "variants": [ "Parking brake set. Disconnecting tow bar, bypass pin removed. Have a nice flight." ]
+    },
+    "crew.paused": {
+      "ref": "REQUIREMENTS §8.9 (el piloto pone el freno empujando: pausa)",
+      "variants": [ "Holding, brakes set. Release parking brake to continue." ]
+    },
+    "crew.resumed": {
+      "ref": "REQUIREMENTS §8.9",
+      "variants": [ "Continuing pushback." ]
+    },
+    "crew.stopped": {
+      "ref": "REQUIREMENTS §8.9 (el piloto detiene el pushback)",
+      "variants": [ "Stopping pushback. Set parking brake." ]
+    },
+    "pilot.request_clearance": {
+      "ref": "REQUIREMENTS §8.3",
+      "variants": [ "{station}, {callsign}, request IFR clearance to {destination}, information {atis}" ]
+    },
+    "pilot.request_clearance_no_atis": {
+      "ref": "REQUIREMENTS §8.3 (sin ATIS disponible)",
+      "variants": [ "{station}, {callsign}, request IFR clearance to {destination}" ]
+    },
+    "pilot.readback_clearance": {
+      "ref": "CAP 413 §2.68",
+      "variants": [ "Cleared to {destination} via {sid} departure, runway {runway}, climb {level}, squawk {squawk}{after_departure_readback}, {callsign}" ]
+    },
+    "pilot.readback_clearance_no_level": {
+      "ref": "CAP 413 §2.68",
+      "variants": [ "Cleared to {destination} via {sid} departure, runway {runway}, squawk {squawk}{after_departure_readback}, {callsign}" ]
+    },
+    "pilot.readback_clearance_no_sid": {
+      "ref": "CAP 413 §2.68",
+      "variants": [ "Cleared to {destination}, runway {runway}, climb {level}, squawk {squawk}{after_departure_readback}, {callsign}" ]
+    },
+    "pilot.readback_clearance_no_sid_no_level": {
+      "ref": "CAP 413 §2.68",
+      "variants": [ "Cleared to {destination}, runway {runway}, squawk {squawk}{after_departure_readback}, {callsign}" ]
+    },
+    "pilot.readback_after_departure": {
+      "ref": "CAP 413 §2.68",
+      "variants": [ ", after departure {next_station} {frequency}" ]
+    },
+    "pilot.request_startup": {
+      "ref": "CAP 413 §4.9",
+      "variants": [ "{station}, {callsign}, stand {stand}, information {atis}, QNH {qnh}, request start up" ]
+    },
+    "pilot.request_pushback": {
+      "ref": "CAP 413 §4.11",
+      "variants": [ "{callsign}, stand {stand}, request pushback" ]
+    },
+    "pilot.request_pushback_no_stand": {
+      "ref": "CAP 413 §4.11; REQUIREMENTS §8.3 (pilotos IA: el puesto no se nombra)",
+      "variants": [ "{station}, {callsign}, request pushback" ]
+    },
+    "pilot.readback_pushback": {
+      "ref": "CAP 413 §4.11 (colación); REQUIREMENTS §8.3",
+      "variants": [ "Pushback approved, {callsign}" ]
+    },
+    "pilot.readback_give_way": {
+      "ref": "CAP 413 ed. 24 cap. 4 (\"Give way to the Cherokee on taxiway Alpha…, G-CD\")",
+      "variants": [ "Give way to the {traffic}, {callsign}" ]
+    },
+    "pilot.readback_caution": {
+      "ref": "CAP 413 ed. 24 cap. 2 (WILCO: \"I understand your message and will comply with it\")",
+      "variants": [ "Wilco, {callsign}" ]
+    },
+    "pilot.readback_follow": {
+      "ref": "CAP 413 ed. 24 cap. 4 (\"Follow Cherokee ahead, G-CD\")",
+      "variants": [ "Follow the {traffic} ahead, {callsign}" ]
+    },
+    "pilot.readback_continue_taxi": {
+      "ref": "LUAW (no oficial, §8.1): CAP 413 no tiene \"continue taxi\" (se repite la autorización); variante corta para no repetir la ruta",
+      "variants": [ "Continue taxi, {callsign}" ]
+    },
+    "pilot.readback_continue_taxi_follow": {
+      "ref": "LUAW (no oficial, §8.1): CAP 413 no tiene \"continue taxi\" (se repite la autorización); variante corta para no repetir la ruta",
+      "variants": [ "Continue taxi, follow the {traffic}, {callsign}" ]
+    },
+    "pilot.readback_hold_position": {
+      "ref": "CAP 413 ed. 24 (\"G-CD, hold position\" → \"Holding, G-CD\")",
+      "variants": [ "Holding, {callsign}" ]
+    },
+    "pilot.request_taxi": {
+      "ref": "REQUIREMENTS §8.3",
+      "variants": [ "{station}, {callsign}, request taxi" ]
+    },
+    "pilot.readback_taxi": {
+      "ref": "CAP 413 §4.12-4.16",
+      "variants": [ "Taxi to holding point runway {runway} via {route}, {callsign}" ]
+    },
+    "pilot.readback_taxi_no_route": {
+      "ref": "CAP 413 §4.12-4.16",
+      "variants": [ "Taxi to holding point runway {runway}, {callsign}" ]
+    },
+    "pilot.ready_for_departure": {
+      "ref": "REQUIREMENTS §8.3",
+      "variants": [ "{station}, {callsign}, holding point runway {runway}, ready for departure" ]
+    },
+    "pilot.readback_line_up": {
+      "ref": "CAP 413 §4.31",
+      "variants": [ "Line up and wait runway {runway}, {callsign}" ]
+    },
+    "pilot.readback_line_up_behind": {
+      "ref": "CAP 413 ed. 24 §4.33 (\"Behind the landing DC9, line up Runway 26 behind, BIGJET 347\")",
+      "variants": [ "Behind the departing {traffic}, line up runway {runway} behind, {callsign}" ]
+    },
+    "pilot.readback_line_up_behind_landing": {
+      "ref": "CAP 413 ed. 24 §4.33 (\"Behind the landing DC9, line up Runway 26 behind, BIGJET 347\")",
+      "variants": [ "Behind the landing {traffic}, line up runway {runway} behind, {callsign}" ]
+    },
+    "pilot.readback_hold_short": {
+      "ref": "CAP 413 §4.15 (colación de \"hold short\"); REQUIREMENTS §8.3",
+      "variants": [ "Holding short runway {runway}, {callsign}" ]
+    },
+    "pilot.readback_climb": {
+      "ref": "CAP 413 cap. 5 (colación de niveles); REQUIREMENTS §8.3",
+      "variants": [ "Climb {level}, {callsign}" ]
+    },
+    "pilot.readback_takeoff": {
+      "ref": "CAP 413 §4.31",
+      "variants": [ "Runway {runway}, cleared for take-off, {callsign}" ]
+    },
+    "pilot.readback_contact": {
+      "ref": "REQUIREMENTS §8.3",
+      "variants": [ "{next_station} {frequency}, {callsign}", "{next_station} {frequency}, good day, {callsign}" ]
+    },
+    "pilot.check_in_departure": {
+      "ref": "AIP-CHILE AD 2 SCEL 3.5 (\"indicativo, altitud y SID autorizada\")",
+      "variants": [ "{station}, {callsign}, {altitude}, {sid}" ]
+    },
+    "pilot.say_again": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "Say again, {callsign}" ]
+    },
+    "pilot.unable": {
+      "ref": "REQUIREMENTS §8.7",
+      "variants": [ "Unable, {callsign}" ]
+    },
+    "pilot.arrival_final": {
+      "ref": "REQUIREMENTS §8.3b (LUAW, no oficial; CAP 413 'final')",
+      "variants": [ "{station}, {callsign}, final runway {runway}" ]
+    },
+    "atc.continue_approach": {
+      "ref": "Doc 4444 cap. 12 'CONTINUE APPROACH'",
+      "variants": [ "{callsign}, continue approach" ]
+    },
+    "pilot.readback_continue_approach": {
+      "ref": "REQUIREMENTS §8.3b",
+      "variants": [ "Continue approach, {callsign}" ]
+    },
+    "atc.cleared_to_land": {
+      "ref": "CAP 413 cap. 4; Doc 4444 'CLEARED TO LAND'",
+      "variants": [ "{callsign}, runway {runway}, cleared to land, wind {wind}", "{callsign}, wind {wind}, runway {runway}, cleared to land" ]
+    },
+    "atc.cleared_to_land_no_wind": {
+      "ref": "CAP 413 cap. 4",
+      "variants": [ "{callsign}, runway {runway}, cleared to land" ]
+    },
+    "pilot.readback_land": {
+      "ref": "CAP 413 cap. 4 (colación de pista y autorización)",
+      "variants": [ "Runway {runway}, cleared to land, {callsign}" ]
+    },
+    "atc.go_around": {
+      "ref": "CAP 413 cap. 4 ('go around, I say again, go around')",
+      "variants": [ "{callsign}, go around, I say again, go around" ]
+    },
+    "pilot.readback_go_around": {
+      "ref": "CAP 413 cap. 4",
+      "variants": [ "Going around, {callsign}" ]
+    },
+    "atc.descend": {
+      "ref": "Doc 4444 12.3.1.2 'DESCEND TO (level)'; REQUIREMENTS §8.3b",
+      "variants": [ "{callsign}, descend to {level}" ]
+    },
+    "atc.descend_qnh": {
+      "ref": "CAP 413 cap. 5 (altitud con QNH); REQUIREMENTS §8.3b",
+      "variants": [ "{callsign}, descend to altitude {level}, QNH {qnh}" ]
+    },
+    "pilot.readback_descend": {
+      "ref": "CAP 413 cap. 5 (colación de niveles)",
+      "variants": [ "Descend {level}, {callsign}" ]
+    },
+    "pilot.readback_descend_qnh": {
+      "ref": "CAP 413 cap. 5 (colación de altitud y QNH)",
+      "variants": [ "Descend altitude {level}, QNH {qnh}, {callsign}" ]
+    },
+    "atc.cleared_approach": {
+      "ref": "CAP 413 cap. 6 ('cleared ILS approach runway 27')",
+      "variants": [ "{callsign}, cleared {approach} approach runway {runway}" ]
+    },
+    "pilot.readback_cleared_approach": {
+      "ref": "CAP 413 cap. 6",
+      "variants": [ "Cleared {approach} approach runway {runway}, {callsign}" ]
+    },
+    "atc.reduce_speed": {
+      "ref": "Doc 4444 cap. 12 (ajuste de velocidad) 'REDUCE SPEED TO (number) KNOTS'",
+      "variants": [ "{callsign}, reduce speed to {speed} knots" ]
+    },
+    "pilot.readback_reduce_speed": {
+      "ref": "CAP 413 (colación de velocidad)",
+      "variants": [ "Reduce speed to {speed} knots, {callsign}" ]
+    },
+    "atc.resume_speed": {
+      "ref": "Doc 4444 cap. 12 'RESUME NORMAL SPEED'",
+      "variants": [ "{callsign}, resume normal speed" ]
+    },
+    "pilot.readback_resume_speed": {
+      "ref": "CAP 413",
+      "variants": [ "Resume normal speed, {callsign}" ]
+    },
+    "atc.vacate_contact_ground": {
+      "ref": "CAP 413 ed. 24, cap. 4 pág. 26 ('vacate left' / 'when vacated contact Ground'); cap. 9 ('vacate via link Charlie')",
+      "variants": [ "{callsign}, vacate via {taxiway}, when vacated contact {next_station} {frequency}" ]
+    },
+    "atc.when_vacated_contact_ground": {
+      "ref": "CAP 413 ed. 24, cap. 4 pág. 26",
+      "variants": [ "{callsign}, when vacated contact {next_station} {frequency}" ]
+    },
+    "pilot.readback_vacate_contact_ground": {
+      "ref": "CAP 413 ed. 24, cap. 4 pág. 26 ('When vacated Ground 118.350, BIGJET 347')",
+      "variants": [ "Vacate via {taxiway}, when vacated {next_station} {frequency}, {callsign}" ]
+    },
+    "pilot.readback_when_vacated_contact_ground": {
+      "ref": "CAP 413 ed. 24, cap. 4 pág. 26",
+      "variants": [ "When vacated {next_station} {frequency}, {callsign}" ]
+    },
+    "pilot.runway_vacated": {
+      "ref": "CAP 413 ed. 24, cap. 4 pág. 26 ('Kennington Ground, BIGJET 347, runway vacated')",
+      "variants": [ "{station}, {callsign}, runway vacated" ]
+    },
+    "atc.taxi_to_stand": {
+      "ref": "CAP 413 ed. 24, cap. 4 pág. 26 ('taxi to Stand 27 via taxiway Alpha')",
+      "variants": [ "{callsign}, taxi to stand {stand} via {route}" ]
+    },
+    "atc.taxi_to_stand_no_route": {
+      "ref": "CAP 413 ed. 24, cap. 4 pág. 26 (sin calles con nombre en los datos)",
+      "variants": [ "{callsign}, taxi to stand {stand}" ]
+    },
+    "pilot.readback_taxi_to_stand": {
+      "ref": "CAP 413 ed. 24, cap. 4 pág. 26",
+      "variants": [ "Taxi to stand {stand} via {route}, {callsign}" ]
+    },
+    "pilot.readback_taxi_to_stand_no_route": {
+      "ref": "CAP 413 ed. 24, cap. 4 pág. 26",
+      "variants": [ "Taxi to stand {stand}, {callsign}" ]
+    },
+    "atc.cross_runway": {
+      "ref": "CAP 413 ed. 24 §4.15 ('cross runway 26 … report vacated'; al autorizar a cruzar una pista en uso se incluye 'report vacated')",
+      "variants": [ "{callsign}, cross runway {runway}, report vacated" ]
+    },
+    "pilot.readback_cross_runway": {
+      "ref": "CAP 413 ed. 24, cap. 4 pág. 83 ('cross runway 24, Wilco, G-CD')",
+      "variants": [ "Cross runway {runway}, wilco, {callsign}" ]
+    },
+    "atc.climb": {
+      "ref": "CAP 413 ed. 24, cap. 3 pág. 63 ('G-CD, climb FL70' / 'Climb FL70, G-CD')",
+      "variants": [ "{callsign}, climb {level}" ]
+    },
+    "pilot.check_in_enroute": {
+      "ref": "CAP 413 ed. 24, cap. 2 pág. 47 ('maintaining FL80'); cap. 7 pág. 220 ('FL170 descending FL120')",
+      "variants": [ "{station}, {callsign}, {level}" ]
+    },
+    "pilot.check_in_enroute_changing": {
+      "ref": "CAP 413 ed. 24, cap. 7 pág. 220 ('FL170 descending FL120')",
+      "variants": [ "{station}, {callsign}, {level} {verb} {cleared}" ]
+    },
+    "atc.expect_approach": {
+      "ref": "CAP 413 ed. 24, cap. 6 pág. 182 ('expect ILS approach runway 28')",
+      "variants": [ "{callsign}, expect {approach} approach runway {runway}" ]
+    },
+    "pilot.readback_expect_approach": {
+      "ref": "CAP 413 ed. 24 (readback of the runway in use); ADR-097",
+      "variants": [ "Expect {approach} approach runway {runway}, {callsign}" ]
+    },
+    "atc.expect_runway": {
+      "ref": "LUAW (no oficial): variante de 'expect ILS approach runway 28' (CAP 413) sin aproximación publicada; ADR-097",
+      "variants": [ "{callsign}, expect runway {runway}" ]
+    },
+    "atc.unable_runway": {
+      "ref": "CAP 413 ed. 24 (respuesta negativa: 'negative') con el motivo; ADR-097",
+      "variants": [ "{callsign}, negative, unable runway {runway}, runway {in_use} in use" ]
+    },
+    "pilot.request_runway": {
+      "ref": "CAP 413 ed. 24 ('REQUEST…'); ADR-097",
+      "variants": [ "{station}, {callsign}, request runway {runway}" ]
+    },
+    "atc.expect_descent_after": {
+      "ref": "CAP 413 ed. 24 cap. 7 §7.1 ('maintain FL280 expect descent after Marlow'); ADR-098",
+      "variants": [ "{callsign}, maintain {level}, expect descent after {fix}" ]
+    },
+    "pilot.readback_maintaining": {
+      "ref": "CAP 413 ed. 24 cap. 7 §7.1 ('Maintaining FL280, BIGJET 347')",
+      "variants": [ "Maintaining {level}, {callsign}" ]
+    },
+    "atc.descend_cross_above": {
+      "ref": "CAP 413 ed. 24 cap. 7 §7.1 ('descend FL120. Cross Colinton FL170 or above'); ADR-098",
+      "variants": [ "{callsign}, descend {level}, cross {fix} {cross_level} or above" ]
+    },
+    "pilot.readback_descend_cross_above": {
+      "ref": "CAP 413 ed. 24 cap. 7 §7.1 ('Descend FL120. Cross Colinton FL170 or above, BIGJET 347')",
+      "variants": [ "Descend {level}, cross {fix} {cross_level} or above, {callsign}" ]
+    },
+    "atc.cleared_star_descend_via": {
+      "ref": "PANS-ATM (Doc 4444) Enmienda 7-A: 'cleared (designation) arrival', 'DESCEND VIA STAR TO (level)' (AIP Singapur SUP 028/2017 §3.2, §5.1); ADR-101",
+      "variants": [ "{callsign}, cleared {star} arrival, descend via STAR to {level}" ]
+    },
+    "pilot.readback_cleared_star_descend_via": {
+      "ref": "PANS-ATM (Doc 4444) Enmienda 7-A (colación de la autorización)",
+      "variants": [ "Cleared {star} arrival, descend via STAR to {level}, {callsign}" ]
+    },
+    "pilot.request_direct": {
+      "ref": "CAP 413 ed. 24, cap. 11 pág. 300 ('request direct North Cross')",
+      "variants": [ "{station}, {callsign}, request direct {fix}" ]
+    },
+    "atc.route_direct": {
+      "ref": "CAP 413 ed. 24, cap. 6 pág. 178 ('route direct Wicken'); cap. 11 pág. 300",
+      "variants": [ "{callsign}, route direct {fix}" ]
+    },
+    "pilot.readback_route_direct": {
+      "ref": "CAP 413 ed. 24, cap. 6 pág. 178 ('direct Wicken, BIGJET 347')",
+      "variants": [ "Direct {fix}, {callsign}" ]
+    },
+    "pilot.request_descent": {
+      "ref": "CAP 413 ed. 24, cap. 2 pág. 47 ('G-CD, request descent')",
+      "variants": [ "{station}, {callsign}, request descent" ]
+    },
+    "pilot.request_climb": {
+      "ref": "REQUIREMENTS §8.3c (solicitud; 'request climb' como 'request descent' de CAP 413 pág. 47)",
+      "variants": [ "{station}, {callsign}, request climb {level}" ]
+    },
+    "pilot.going_around": {
+      "ref": "CAP 413 ed. 24 §4.64-4.66 ('Going around')",
+      "variants": [ "{station}, {callsign}, going around" ]
+    },
+    "atc.unable_direct": {
+      "ref": "CAP 413 ed. 24 (respuesta negativa: 'negative')",
+      "variants": [ "{callsign}, negative, unable direct {fix}" ]
+    },
+    "atc.traffic_info": {
+      "ref": "CAP 413 ed. 24 cap. 5 §5.22-5.27 (Traffic Information: reloj, distancia, movimiento relativo, nivel); ej. 'G-CD, traffic 1 o'clock 6 miles opposite direction ... 2000 feet below'",
+      "variants": [ "{callsign}, traffic {clock} o'clock, {distance} miles, {movement}, {level}" ]
+    },
+    "traffic.similar_direction": {
+      "ref": "CAP 413 ed. 24 cap. 5 §5.22-5.27 (Traffic Information: reloj, distancia, movimiento relativo, nivel) §5.23.3 'Similar direction'",
+      "variants": [ "similar direction" ]
+    },
+    "traffic.opposite_direction": {
+      "ref": "CAP 413 ed. 24 cap. 5 §5.22-5.27 (Traffic Information: reloj, distancia, movimiento relativo, nivel) §5.23.4 'Opposite direction'",
+      "variants": [ "opposite direction" ]
+    },
+    "traffic.crossing_left_right_ahead": {
+      "ref": "CAP 413 ed. 24 cap. 5 §5.22-5.27 (Traffic Information: reloj, distancia, movimiento relativo, nivel) §5.23.1 'Crossing… left to right… ahead'",
+      "variants": [ "crossing left to right, ahead" ]
+    },
+    "traffic.crossing_left_right_behind": {
+      "ref": "CAP 413 ed. 24 cap. 5 §5.22-5.27 (Traffic Information: reloj, distancia, movimiento relativo, nivel) §5.23.1",
+      "variants": [ "crossing left to right, behind" ]
+    },
+    "traffic.crossing_right_left_ahead": {
+      "ref": "CAP 413 ed. 24 cap. 5 §5.22-5.27 (Traffic Information: reloj, distancia, movimiento relativo, nivel) §5.23.1",
+      "variants": [ "crossing right to left, ahead" ]
+    },
+    "traffic.crossing_right_left_behind": {
+      "ref": "CAP 413 ed. 24 cap. 5 §5.22-5.27 (Traffic Information: reloj, distancia, movimiento relativo, nivel) §5.23.1",
+      "variants": [ "crossing right to left, behind" ]
+    },
+    "pilot.traffic_in_sight": {
+      "ref": "CAP 413 ed. 24 cap. 5 §5.22-5.27 (Traffic Information: reloj, distancia, movimiento relativo, nivel) §5.27 ('G-CD, traffic in sight')",
+      "variants": [ "Traffic in sight, {callsign}" ]
+    },
+    "atc.hold": {
+      "ref": "CAP 413 ed. 24 §6.11 ('BIGJET 347, hold at North Cross FL60 expect onward clearance at time 40') y §7.17 ('hold at Colinton FL170, expect onward clearance at 03')",
+      "variants": [ "{callsign}, hold at {fix} {level}, expect onward clearance at time {minutes}" ]
+    },
+    "pilot.readback_hold": {
+      "ref": "CAP 413 ed. 24 §6.11 ('BIGJET 347, hold at North Cross FL60 expect onward clearance at time 40') y §7.17 ('hold at Colinton FL170, expect onward clearance at 03'); colación 'Hold at Colinton FL170 expect onward clearance at time 03, BIGJET 347'",
+      "variants": [ "Hold at {fix} {level}, expect onward clearance at time {minutes}, {callsign}" ]
+    },
+    "atc.expect_approach_via": {
+      "ref": "CAP 413 ed. 24 cap. 6 ('expect ILS approach runway 28') with the chart transition (not official, VERIFY V-36); ADR-105",
+      "variants": [ "{callsign}, expect {approach} approach runway {runway} via {transition}" ]
+    },
+    "atc.missed_approach_published": {
+      "ref": "CAP 413 ed. 24 cap. 4 (missed approach after 'go around'); ADR-105",
+      "variants": [ "{callsign}, fly the published missed approach" ]
+    },
+    "atc.missed_approach_published_contact": {
+      "ref": "CAP 413 ed. 24 cap. 4 and frequency change; ADR-105",
+      "variants": [ "{callsign}, fly the published missed approach, contact {next_station} {frequency}" ]
+    },
+    "pilot.readback_missed_approach_published": {
+      "ref": "not official (ADR-105)",
+      "variants": [ "Published missed approach, {callsign}" ]
+    },
+    "pilot.readback_missed_approach_published_contact": {
+      "ref": "not official (ADR-105)",
+      "variants": [ "Published missed approach, {next_station} {frequency}, {callsign}" ]
+    },
+    "atc.missed_approach_climb": {
+      "ref": "Doc 4444 12.3.1.2 'CLIMB TO (level)' and runway heading; no published missed approach (ADR-105)",
+      "variants": [ "{callsign}, climb to {level}, fly runway heading" ]
+    },
+    "atc.missed_approach_climb_contact": {
+      "ref": "Doc 4444 12.3.1.2 and frequency change; no published missed approach (ADR-105)",
+      "variants": [ "{callsign}, climb to {level}, fly runway heading, contact {next_station} {frequency}" ]
+    },
+    "pilot.readback_missed_approach_climb": {
+      "ref": "not official (ADR-105)",
+      "variants": [ "Climbing to {level}, runway heading, {callsign}" ]
+    },
+    "pilot.readback_missed_approach_climb_contact": {
+      "ref": "not official (ADR-105)",
+      "variants": [ "Climbing to {level}, runway heading, {next_station} {frequency}, {callsign}" ]
+    },
+    "atc.hold_published": {
+      "ref": "Doc 4444 cap. 12 'HOLD AT (significant point) AS PUBLISHED' (VERIFY V-35); ADR-105",
+      "variants": [ "{callsign}, hold at {fix} as published, maintain {level}" ]
+    },
+    "pilot.readback_hold_published": {
+      "ref": "not official (ADR-105)",
+      "variants": [ "Hold at {fix} as published, maintain {level}, {callsign}" ]
+    },
+    "atc.direct_maintain": {
+      "ref": "CAP 413 ed. 24 cap. 6 ('route direct Wicken') and 'MAINTAIN (level)'; ADR-105",
+      "variants": [ "{callsign}, route direct {fix}, maintain {level}" ]
+    },
+    "pilot.readback_direct_maintain": {
+      "ref": "not official (ADR-105)",
+      "variants": [ "Direct {fix}, maintain {level}, {callsign}" ]
+    },
+    "atc.expedite_descent": {
+      "ref": "Doc 4444 12.3.1.2 'EXPEDITE DESCENT TO (level)'; ADR-105",
+      "variants": [ "{callsign}, expedite descent to {level}" ]
+    },
+    "pilot.readback_expedite_descent": {
+      "ref": "not official (ADR-105)",
+      "variants": [ "Expediting descent to {level}, {callsign}" ]
+    },
+    "atc.orbit_for_descent": {
+      "ref": "Doc 4444 cap. 12 'MAKE A THREE SIXTY TURN LEFT (or RIGHT) [(reason)]'; ADR-105",
+      "variants": [ "{callsign}, make a three sixty turn {direction} for descent" ]
+    },
+    "pilot.readback_orbit_for_descent": {
+      "ref": "not official (ADR-105)",
+      "variants": [ "Three sixty {direction}, {callsign}" ]
+    },
+    "atc.altitude_should_be": {
+      "ref": "Doc 4444 cap. 12, surveillance radar approach: '(number) MILES FROM TOUCHDOWN ALTITUDE SHOULD BE (numbers and units)'; ADR-105",
+      "variants": [ "{callsign}, {distance} miles from touchdown, altitude should be {altitude} feet" ]
+    },
+    "atc.low_altitude_warning": {
+      "ref": "Doc 4444 cap. 12 'LOW ALTITUDE WARNING, CHECK YOUR ALTITUDE IMMEDIATELY, QNH IS (number)'; ADR-105",
+      "variants": [ "{callsign}, low altitude warning, check your altitude immediately, QNH {qnh}" ]
+    },
+    "element.speed": {
+      "ref": "LUAW (not official, §8.1); ADR-105",
+      "variants": [ "speed" ]
+    },
+    "element.star": {
+      "ref": "LUAW (not official, §8.1); ADR-105",
+      "variants": [ "arrival" ]
+    },
+    "correction.speed": {
+      "ref": "Doc 4444 cap. 12 'REDUCE SPEED TO (number) KNOTS'; ADR-105",
+      "variants": [ "reduce speed to {speed} knots" ]
+    },
+    "correction.star": {
+      "ref": "LUAW (not official, §8.1); ADR-105",
+      "variants": [ "{star} arrival" ]
+    },
+    "correction.level_descend": {
+      "ref": "Doc 4444 12.3.1.2 'DESCEND TO (level)'; ADR-105",
+      "variants": [ "descend to {level}" ]
+    },
+    "atc.departure_runway_change": {
+      "ref": "CAP 413 ed. 24 ('runway change') with the new SID; not official (ADR-106)",
+      "variants": [ "{callsign}, runway change, new departure runway {runway}, {sid} departure" ]
+    },
+    "atc.departure_runway_change_no_sid": {
+      "ref": "CAP 413 ed. 24 ('runway change'); not official (ADR-106)",
+      "variants": [ "{callsign}, runway change, new departure runway {runway}" ]
+    },
+    "pilot.readback_departure_runway_change": {
+      "ref": "not official (ADR-106)",
+      "variants": [ "Runway {runway}, {sid} departure, {callsign}" ]
+    },
+    "pilot.readback_departure_runway_change_no_sid": {
+      "ref": "not official (ADR-106)",
+      "variants": [ "Runway {runway}, {callsign}" ]
+    },
+    "atc.orbit_for_sequencing": {
+      "ref": "Doc 4444 cap. 12 'MAKE A THREE SIXTY TURN LEFT (or RIGHT) [(reason)]'; ADR-107",
+      "variants": [ "{callsign}, make a three sixty turn {direction} for sequencing" ]
+    },
+    "atc.cleared_approach_via": {
+      "ref": "CAP 413 cap. 6 ('cleared ILS approach runway 27') con la letra y la transición de la carta, como atc.expect_approach_via (no oficial, VERIFICAR V-36); ADR-121",
+      "variants": [ "{callsign}, cleared {approach} approach runway {runway} via {transition}" ]
+    },
+    "pilot.readback_cleared_approach_via": {
+      "ref": "CAP 413 cap. 6; ADR-121",
+      "variants": [ "Cleared {approach} approach runway {runway} via {transition}, {callsign}" ]
+    },
+    "atc.vector_for_approach": {
+      "ref": "Doc 4444 12.3.4 'TURN LEFT (or RIGHT) HEADING (three digits)' y 12.4.2 'VECTORING FOR (type) APPROACH RUNWAY (number)'; CAP 413 cap. 6; ADR-123",
+      "variants": [ "{callsign}, turn {direction} heading {heading}, vectoring for {approach} approach runway {runway}" ]
+    },
+    "pilot.readback_vector_for_approach": {
+      "ref": "CAP 413 cap. 6 (colación de rumbo); ADR-123",
+      "variants": [ "Turn {direction} heading {heading}, {callsign}" ]
+    },
+    "atc.vector_heading": {
+      "ref": "Doc 4444 12.3.4 'TURN LEFT (or RIGHT) HEADING (three digits)'; ADR-123",
+      "variants": [ "{callsign}, turn {direction} heading {heading}" ]
+    },
+    "pilot.readback_vector_heading": {
+      "ref": "CAP 413 cap. 6 (colación de rumbo); ADR-123",
+      "variants": [ "Turn {direction} heading {heading}, {callsign}" ]
+    },
+    "atc.vector_intercept_cleared": {
+      "ref": "Doc 4444 12.3.4 y 12.4.2 'CLEARED (type) APPROACH RUNWAY (number)'; CAP 413 cap. 6 ('turn right heading 240 ... cleared ILS approach runway 27'); ADR-123",
+      "variants": [ "{callsign}, turn {direction} heading {heading}, cleared {approach} approach runway {runway}" ]
+    },
+    "pilot.readback_vector_intercept_cleared": {
+      "ref": "CAP 413 cap. 6; ADR-123",
+      "variants": [ "Turn {direction} heading {heading}, cleared {approach} approach runway {runway}, {callsign}" ]
+    },
+    "correction.heading": {
+      "ref": "Doc 4444 12.3.4 'TURN LEFT (or RIGHT) HEADING (three digits)'; ADR-123",
+      "variants": [ "heading {heading}" ]
+    },
+    "atc.identified_via_sid": {
+      "ref": "PANS-ATM (Doc 4444) Enmienda 7-A (2016) 'CLIMB VIA SID TO (level)'; ADR-124",
+      "variants": [ "{callsign}, {station}, identified, climb via SID to {level}" ]
+    },
+    "atc.caution_wake": {
+      "ref": "Doc 4444 cap. 12 'CAUTION WAKE TURBULENCE'; FAA JO 7110.65 2-1-20; CAP 413 cap. 6 (VERIFICAR numeración); ADR-124",
+      "variants": [ "{callsign}, caution wake turbulence, {traffic} {distance} miles ahead" ]
+    },
+    "atc.radio_check": {
+      "ref": "Doc 4444 / Anexo 10 vol. II 5.2.1.8 (prueba de radio, escala de legibilidad 1 a 5); CAP 413 cap. 2 'readability 5'; ADR-132",
+      "variants": [ "{callsign}, {station}, readability 5" ]
+    },
+    "pilot.radio_check": {
+      "ref": "Anexo 10 vol. II 5.2.1.8 'RADIO CHECK'; CAP 413 cap. 2; ADR-132",
+      "variants": [ "{station}, {callsign}, radio check" ]
+    },
+    "pilot.confirm_clearance": {
+      "ref": "no oficial (consulta del piloto, sin valores; ADR-132)",
+      "variants": [ "{station}, {callsign}, confirm clearance" ]
+    }
+  }
+}

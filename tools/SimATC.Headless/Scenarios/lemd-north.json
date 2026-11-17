@@ -1,0 +1,6 @@
+{
+  "airport": "LEMD", "seed": 13, "hours": 1.5, "runways": ["auto"], "windFromDeg": 340, "windKt": 6,
+  "departures": [],
+  "flow": { "startS": 0, "intervalS": 90, "maxOnGround": 16 },
+  "arrivals": { "startS": 30, "intervalS": 90, "runways": ["auto"] }
+}

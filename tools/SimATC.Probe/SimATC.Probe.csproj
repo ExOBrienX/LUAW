@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Consola de diagnóstico: conecta con MSFS y muestra datos. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SimATC.Core\SimATC.Core.csproj" />
+    <ProjectReference Include="..\..\src\SimATC.Sim\SimATC.Sim.csproj" />
+    <ProjectReference Include="..\..\src\SimATC.Voice\SimATC.Voice.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
+  </ItemGroup>
+</Project>

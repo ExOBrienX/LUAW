@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Voz Kokoro para el ATC (bloque C, ADR-103) como proceso aparte: carga el modelo una vez y recibe las frases por la
+    entrada estándar. Usa el espeak-ng de Piper (GPL) solo dentro de este proceso, como Piper: no se enlaza con la app.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,1356 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:app="using:SimATC.App"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:SimATC.App.ViewModels"
+        xmlns:radar="using:SimATC.App.Radar"
+        xmlns:views="using:SimATC.App.Views"
+        xmlns:plan="using:SimATC.Core.Plan"
+        xmlns:atc="using:SimATC.Core.Atc"
+        xmlns:sys="using:System"
+        xmlns:comms="using:SimATC.Core.Comms"
+        mc:Ignorable="d" d:DesignWidth="1400" d:DesignHeight="850"
+        x:Class="SimATC.App.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="1400" Height="860" MinWidth="1000" MinHeight="620"
+        Background="{StaticResource BgDeep}"
+        Icon="/Assets/simatc.ico"
+        Title="{app:T 'LUAW'}">
+    <!-- Boceto aprobado de la etapa 4 (hito 4a): barra superior, navegación lateral y paneles. -->
+    <Window.Styles>
+        <Style Selector="Border.chip">
+            <Setter Property="Background" Value="{StaticResource BgRaised}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.mode">
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+            <Setter Property="CornerRadius" Value="5" />
+        </Style>
+        <Style Selector="Button.mode.on">
+            <Setter Property="Background" Value="{StaticResource AccentBg}" />
+            <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+        </Style>
+        <Style Selector="Button.mode.on /template/ ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentBg}" />
+        </Style>
+        <Style Selector="TextBlock.cell">
+            <Setter Property="Foreground" Value="{StaticResource TextBody}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.cell.warn">
+            <Setter Property="Foreground" Value="{StaticResource Warn}" />
+        </Style>
+        <Style Selector="Border.row.selected">
+            <Setter Property="Background" Value="{StaticResource AccentBg}" />
+        </Style>
+        <Style Selector="Button.small">
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <!-- Barra de nivel del micrófono: verde cuando pasa el umbral (cuenta como voz). -->
+        <Style Selector="ProgressBar.mic">
+            <Setter Property="Foreground" Value="{StaticResource AccentLine}" />
+            <Setter Property="Background" Value="{StaticResource BgDeep}" />
+        </Style>
+        <Style Selector="ProgressBar.mic.speaking">
+            <Setter Property="Foreground" Value="{StaticResource Ok}" />
+        </Style>
+        <!-- Selector de pista del plan (ADR-127): filas como el EFB, con el punto verde en las que están en uso -->
+        <Style Selector="ListBox.runways">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="2" />
+            <Setter Property="MaxHeight" Value="210" />
+        </Style>
+        <Style Selector="ListBox.runways ListBoxItem">
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+        <!-- El color va por clase (un valor local le ganaría al estilo de la fila elegida) -->
+        <Style Selector="ListBox.runways TextBlock.rwnote">
+            <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+        </Style>
+        <Style Selector="ListBox.runways ListBoxItem:selected TextBlock.rwnote">
+            <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+        </Style>
+    </Window.Styles>
+
+    <Window.Resources>
+        <DataTemplate x:Key="RunwayOptionTemplate" x:DataType="atc:RunwayOption">
+            <Grid ColumnDefinitions="46,20,*">
+                <TextBlock Classes="mono" Text="{Binding Ident}" FontWeight="SemiBold" Foreground="{StaticResource TextMain}" VerticalAlignment="Center" />
+                <Ellipse Grid.Column="1" Width="9" Height="9" Fill="#3DDC84" IsVisible="{Binding InUse}" HorizontalAlignment="Left"
+                         VerticalAlignment="Center" ToolTip.Tip="{app:T 'En uso ahora según el viento'}" />
+                <TextBlock Grid.Column="2" Classes="rwnote" Text="{Binding Note}" FontSize="12" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="WhyTemplate" x:DataType="x:String">
+            <TextBlock Text="{Binding}" Foreground="{StaticResource TextBody}" TextWrapping="Wrap" Margin="0,1" />
+        </DataTemplate>
+        <DataTemplate x:Key="LegTemplate" x:DataType="plan:LegRow">
+            <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="0,4">
+                <Grid ColumnDefinitions="80,*,110,80">
+                    <TextBlock Classes="cell mono" Text="{Binding Fix}" Foreground="{StaticResource TextMain}" />
+                    <TextBlock Classes="cell" Grid.Column="1" Text="{Binding Description}" TextWrapping="Wrap" />
+                    <TextBlock Classes="cell mono" Grid.Column="2" Text="{Binding Altitude}" />
+                    <TextBlock Classes="cell mono" Grid.Column="3" Text="{Binding Speed}" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="DiagItemTemplate" x:DataType="vm:DiagRow">
+            <DockPanel Margin="0,2">
+                <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextDim}" Width="150" TextWrapping="Wrap" />
+                <TextBlock Classes="cell" Classes.warn="{Binding Warn}" Text="{Binding Value}" TextWrapping="Wrap" />
+            </DockPanel>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="{Binding NavWidth}" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <!-- Barra superior: conexión, aeropuerto, ATIS, COM1, modo, hora UTC -->
+        <Border Grid.ColumnSpan="2" Background="{StaticResource BgPanel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="10">
+                    <Border Classes="chip" Padding="3">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <Button Classes="mode" Classes.on="{Binding ModeText}" Content="{app:T 'Texto'}" Command="{Binding SetModeCommand}" CommandParameter="Text" />
+                            <Button Classes="mode" Classes.on="{Binding ModeVoice}" Content="{app:T 'Voz'}" Command="{Binding SetModeCommand}" CommandParameter="Voice" />
+                            <Button Classes="mode" Classes.on="{Binding ModeCopilot}" Content="{app:T 'Copiloto'}" Command="{Binding SetModeCommand}" CommandParameter="Copilot" />
+                        </StackPanel>
+                    </Border>
+                    <!-- Tráfico (ADR-076): etapa de carga con barra, o el botón para iniciarlo si el automático está apagado. -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="{Binding TrafficLoading}">
+                        <TextBlock Text="{Binding TrafficStage}" Foreground="{StaticResource TextDim}" VerticalAlignment="Center" />
+                        <ProgressBar Value="{Binding TrafficProgress}" Minimum="0" Maximum="100" Width="120" MinWidth="120" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button Content="{app:T 'Iniciar tráfico'}" Command="{Binding StartTrafficCommand}" VerticalAlignment="Center"
+                            IsVisible="{Binding ShowStartTraffic}"
+                            Classes="primary"
+                            ToolTip.Tip="{app:T 'Estaciona aviones y arranca las salidas, llegadas y vuelos alrededor tuyo (al abrir LUAW no se inyecta nada)'}" />
+                    <Button Content="{app:T 'Panel compacto'}" Command="{Binding OpenCompactCommand}" VerticalAlignment="Center"
+                            ToolTip.Tip="{app:T 'Ventana pequeña con la frecuencia, para tenerla encima del simulador'}" />
+                    <TextBlock Text="{Binding UtcTime}" Classes="mono" FontSize="15" Foreground="{StaticResource TextMain}" VerticalAlignment="Center" />
+                </StackPanel>
+                <!-- Los chips bajan de línea si la ventana es angosta, en vez de cortarse. -->
+                <WrapPanel x:Name="TopChips" Orientation="Horizontal">
+                    <WrapPanel.Styles>
+                        <Style Selector="WrapPanel#TopChips > :is(Control)">
+                            <Setter Property="Margin" Value="0,2,14,2" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </WrapPanel.Styles>
+                    <Border Classes="chip">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <Ellipse Width="8" Height="8" Fill="{StaticResource Ok}" IsVisible="{Binding IsConnected}" />
+                            <Ellipse Width="8" Height="8" Fill="{StaticResource Warn}" IsVisible="{Binding !IsConnected}" />
+                            <TextBlock Text="{Binding ConnectionText}" Foreground="{StaticResource TextBody}" VerticalAlignment="Center" />
+                            <Button Classes="small" Content="{app:T 'Reconectar'}" Command="{Binding ReconnectCommand}" Padding="8,1"
+                                    ToolTip.Tip="{app:T 'Corta y vuelve a conectar con MSFS al instante (se borran los aviones creados por LUAW)'}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="chip" ToolTip.Tip="{Binding AirportText}" MaxWidth="320">
+                        <TextBlock Text="{Binding AirportText}" Foreground="{StaticResource TextMain}" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Border>
+                    <!-- ATIS: lo esencial en el chip; clic para el texto completo -->
+                    <Button Padding="10,4" VerticalAlignment="Center" Background="{StaticResource BgRaised}" BorderBrush="{StaticResource LineStrong}"
+                            BorderThickness="1" CornerRadius="6" ToolTip.Tip="{app:T 'Clic para ver el ATIS completo'}">
+                        <TextBlock Text="{Binding AtisChip}" Foreground="{StaticResource TextMain}" />
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft">
+                                <StackPanel Spacing="8" Width="460">
+                                    <TextBlock Classes="h2" Text="{Binding AtisTitle}" TextWrapping="Wrap" />
+                                    <SelectableTextBlock Text="{Binding AtisText}" TextWrapping="Wrap" Foreground="{StaticResource TextMain}" FontSize="14" />
+                                    <TextBlock Text="{Binding ActiveRunwayText}" Foreground="{StaticResource Accent}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding AtisSourceNote}" Foreground="{StaticResource TextDim}" FontSize="12" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                    <Border Classes="chip">
+                        <TextBlock>
+                            <Run Text="{app:T 'COM1 '}" Foreground="{StaticResource TextDim}" />
+                            <Run Text="{Binding Comms.Frequency}" Foreground="{StaticResource Freq}" FontFamily="{StaticResource Mono}" />
+                        </TextBlock>
+                    </Border>
+                </WrapPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Navegación lateral -->
+        <Border Grid.Row="1" Background="{StaticResource BgPanel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0" Padding="10,12">
+            <StackPanel Spacing="4">
+                <!-- Logo (ADR-083) -->
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="4,0,0,10">
+                    <Image Source="/Assets/simatc-64.png" Width="32" Height="32" />
+                    <TextBlock Text="{app:T 'LUAW'}" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{StaticResource TextMain}"
+                               IsVisible="{Binding !NavCollapsed}" />
+                </StackPanel>
+                <Button Classes="nav" Classes.active="{Binding IsRadar}" Command="{Binding NavigateCommand}" CommandParameter="radar" ToolTip.Tip="{app:T 'Radar'}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Path Data="M12,3 A9,9 0 1 1 11.99,3 M12,7.5 A4.5,4.5 0 1 1 11.99,7.5 M12,12 L18.4,5.6" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="{app:T 'Radar'}" VerticalAlignment="Center" IsVisible="{Binding !NavCollapsed}" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="nav" Classes.active="{Binding IsComms}" Command="{Binding NavigateCommand}" CommandParameter="comms" ToolTip.Tip="{app:T 'Comunicaciones'}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Path Data="M4,15 V12 A8,8 0 0 1 20,12 V15 M4,14 H7.5 V20 H4 Z M20,14 H16.5 V20 H20 Z" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="{app:T 'Comunicaciones'}" VerticalAlignment="Center" IsVisible="{Binding !NavCollapsed}" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="nav" Classes.active="{Binding IsPlan}" Command="{Binding NavigateCommand}" CommandParameter="plan" ToolTip.Tip="{app:T 'Plan de vuelo'}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Path Data="M6,18 C10,18 9,12 12,12 C15,12 14,6 18,6 M4.4,18 A1.6,1.6 0 1 0 7.6,18 A1.6,1.6 0 1 0 4.4,18 M16.4,6 A1.6,1.6 0 1 0 19.6,6 A1.6,1.6 0 1 0 16.4,6" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="{app:T 'Plan de vuelo'}" VerticalAlignment="Center" IsVisible="{Binding !NavCollapsed}" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="nav" Classes.active="{Binding IsBriefing}" Command="{Binding NavigateCommand}" CommandParameter="briefing" ToolTip.Tip="{app:T 'Briefing'}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Path Data="M6,3 H14 L18,7 V21 H6 Z M14,3 V7 H18 M9,12 H15 M9,16 H15" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="{app:T 'Briefing'}" VerticalAlignment="Center" IsVisible="{Binding !NavCollapsed}" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="nav" Classes.active="{Binding IsFlights}" Command="{Binding NavigateCommand}" CommandParameter="flights" ToolTip.Tip="{app:T 'Mis vuelos'}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Path Data="M5,4 H19 V20 H5 Z M8,8 H16 M8,12 H16 M8,16 H13" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="{app:T 'Mis vuelos'}" VerticalAlignment="Center" IsVisible="{Binding !NavCollapsed}" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="nav" Classes.active="{Binding IsTrafficPanel}" Command="{Binding NavigateCommand}" CommandParameter="traffic" ToolTip.Tip="{app:T 'Tráfico'}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Path Data="M12,3 V21 M4.5,12 L12,9.5 L19.5,12 M9,20 L12,18.5 L15,20" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="{app:T 'Tráfico'}" VerticalAlignment="Center" IsVisible="{Binding !NavCollapsed}" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="nav" Classes.active="{Binding IsManual}" Command="{Binding NavigateCommand}" CommandParameter="manual" ToolTip.Tip="{app:T 'Manual del ATC'}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Path Data="M4,5 C7,4 10,4 12,6 C14,4 17,4 20,5 V19 C17,18 14,18 12,20 C10,18 7,18 4,19 Z M12,6 V20" Stroke="{Binding $parent[Button].Foreground}"
+                              StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="{app:T 'Manual del ATC'}" VerticalAlignment="Center" IsVisible="{Binding !NavCollapsed}" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="nav" Classes.active="{Binding IsSettings}" Command="{Binding NavigateCommand}" CommandParameter="settings" ToolTip.Tip="{app:T 'Configuración'}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Path Data="M4,7 H20 M4,17 H20 M9,4.5 V9.5 M15,14.5 V19.5" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="{app:T 'Configuración'}" VerticalAlignment="Center" IsVisible="{Binding !NavCollapsed}" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="nav" Classes.active="{Binding IsDiag}" Command="{Binding NavigateCommand}" CommandParameter="diag" ToolTip.Tip="{app:T 'Diagnóstico'}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Path Data="M3,12 H7 L9.5,6 L13.5,18 L16,12 H21" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="{app:T 'Diagnóstico'}" VerticalAlignment="Center" IsVisible="{Binding !NavCollapsed}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <!-- Contenido -->
+        <Grid Grid.Row="1" Grid.Column="1">
+            <!-- Radar con la frecuencia acoplada a la derecha -->
+            <!-- Radar | divisor | comunicaciones: arrastra el divisor para ensanchar el panel. -->
+            <Grid Classes="page" IsVisible="{Binding ShowDockedRadar}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="{Binding CommsColumnWidth}" />
+                </Grid.ColumnDefinitions>
+                <!-- El radar se declara aquí (hereda los datos de la ventana); "Ventana aparte" lo mueve a su propia ventana. -->
+                <ContentControl x:Name="RadarHost">
+                    <views:RadarPanel x:Name="RadarPanelView" />
+                </ContentControl>
+                <GridSplitter Grid.Column="1" Background="{StaticResource Line}" ResizeDirection="Columns" IsVisible="{Binding ShowDockedComms}"
+                              ToolTip.Tip="{app:T 'Arrastra para cambiar el ancho del panel de comunicaciones'}" />
+                <Border Grid.Column="2" MinWidth="300" IsVisible="{Binding ShowDockedComms}">
+                    <views:CommsPanel DataContext="{Binding Comms}" StepOnRadar="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).ShowAtcCard}" />
+                </Border>
+            </Grid>
+
+            <!-- Con el radar en su propia ventana: aquí, las comunicaciones a lo ancho. -->
+            <DockPanel Classes="page" IsVisible="{Binding ShowRadarElsewhere}">
+                <Border DockPanel.Dock="Top" Classes="chip" Margin="12,10" HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="{app:T 'El radar está en su propia ventana.'}" VerticalAlignment="Center" Foreground="{StaticResource TextBody}" />
+                        <Button Classes="small" Content="{app:T 'Traerlo aquí'}" Command="{Binding DockRadarCommand}" Padding="8,1" />
+                    </StackPanel>
+                </Border>
+                <views:CommsPanel DataContext="{Binding Comms}" IsWide="True" />
+            </DockPanel>
+
+            <!-- Comunicaciones a pantalla completa -->
+            <views:CommsPanel Classes="page" DataContext="{Binding Comms}" IsWide="True" IsVisible="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsComms}" />
+
+            <!-- Plan de vuelo: barra con SimBrief arriba; pestañas a la izquierda y el mapa fijo a la derecha (sin scroll largo).
+                 El plan no se carga en el simulador (§3). -->
+            <Grid Classes="page" IsVisible="{Binding IsPlan}" RowDefinitions="Auto,*" Margin="20,16,20,20">
+                <!-- Barra: título, SimBrief, plan manual y acciones -->
+                <!-- Dos filas: título y acciones; SimBrief y estado. Así nada se superpone en una ventana chica. -->
+                <Border Classes="card" Padding="14,10" Margin="0,0,0,12">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                        <TextBlock Classes="h1" Text="{Binding PlanTitle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Button Content="{app:T 'Plan manual…'}">
+                                <Button.Flyout>
+                                    <Flyout Placement="BottomEdgeAlignedRight">
+                                        <StackPanel Spacing="8" Width="360">
+                                            <TextBlock Foreground="{StaticResource TextDim}" TextWrapping="Wrap"
+                                                       Text="{app:T 'Para volar sin SimBrief. La ruta queda como texto y no se dibuja en el radar.'}" />
+                                            <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                                <TextBlock Classes="label" Text="{app:T 'Indicativo'}" />
+                                                <TextBox Grid.Row="1" Text="{Binding ManualCallsign}" PlaceholderText="{app:T 'Indicativo OACI'}" />
+                                                <TextBlock Grid.Column="2" Classes="label" Text="{app:T 'Tipo (OACI)'}" />
+                                                <TextBox Grid.Column="2" Grid.Row="1" Text="{Binding ManualType}" PlaceholderText="{app:T 'A20N'}" />
+                                                <TextBlock Grid.Row="2" Classes="label" Text="{app:T 'Origen'}" Margin="0,8,0,0" />
+                                                <TextBox Grid.Row="3" Text="{Binding ManualOrigin}" PlaceholderText="{app:T 'ICAO de salida'}" />
+                                                <TextBlock Grid.Column="2" Grid.Row="2" Classes="label" Text="{app:T 'Destino'}" Margin="0,8,0,0" />
+                                                <TextBox Grid.Column="2" Grid.Row="3" Text="{Binding ManualDestination}" PlaceholderText="{app:T 'ICAO de destino'}" />
+                                            </Grid>
+                                            <TextBlock Classes="label" Text="{app:T 'Crucero'}" />
+                                            <TextBox Text="{Binding ManualCruise}" PlaceholderText="{app:T 'FL240'}" />
+                                            <TextBlock Classes="label" Text="{app:T 'Ruta'}" />
+                                            <TextBox Text="{Binding ManualRoute}" PlaceholderText="{app:T 'SID, aerovías y puntos, STAR'}" TextWrapping="Wrap" />
+                                            <ItemsControl ItemsSource="{Binding ManualErrors}" ItemTemplate="{StaticResource WhyTemplate}" />
+                                            <Button Content="{app:T 'Usar este plan'}" Command="{Binding CreateManualPlanCommand}" />
+                                        </StackPanel>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                            <Button Content="{app:T 'Ver en el radar'}" Command="{Binding ShowPlanOnRadarCommand}" IsVisible="{Binding HasPlan}" />
+                            <Button Content="{app:T 'Quitar plan'}" Command="{Binding AskClearPlanCommand}" IsVisible="{Binding HasPlan}" />
+                        </StackPanel>
+                        <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="220,Auto,Auto,*" Margin="0,8,0,0">
+                            <TextBox Text="{Binding SimBriefUser}" PlaceholderText="{app:T 'Pilot ID o usuario de SimBrief'}"
+                                     ToolTip.Tip="{app:T 'Pilot ID (solo números) o usuario de SimBrief'}" />
+                            <Button Grid.Column="1" Content="{app:T 'Cargar de SimBrief'}" Command="{Binding LoadSimBriefCommand}" Margin="8,0,0,0" />
+                            <ProgressBar Grid.Column="2" IsIndeterminate="True" Width="60" MinWidth="60" Margin="10,0,0,0"
+                                         IsVisible="{Binding PlanLoading}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="3" Text="{Binding PlanStatus}" Foreground="{StaticResource TextDim}" VerticalAlignment="Center"
+                                       Margin="12,0,0,0" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PlanStatus}" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- Columnas proporcionales: las pestañas no bajan de 400 px ni el mapa de 360 -->
+                <Grid Grid.Row="1" ColumnDefinitions="2*,14,3*">
+                    <Grid.Styles>
+                        <!-- Pestañas compactas: las cinco caben en una fila -->
+                        <Style Selector="TabControl#PlanTabs TabItem">
+                            <Setter Property="FontSize" Value="14" />
+                            <Setter Property="MinHeight" Value="36" />
+                            <Setter Property="Padding" Value="12,6" />
+                        </Style>
+                    </Grid.Styles>
+                    <!-- Pestañas: cada una encuadra el mapa en su parte del vuelo -->
+                    <Border Classes="card" Padding="0" MinWidth="400">
+                        <TabControl x:Name="PlanTabs" SelectionChanged="OnPlanTabChanged" Padding="0">
+                            <TabItem Header="{app:T 'Resumen'}">
+                                <ScrollViewer Padding="14,6,14,14">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock Text="{app:T 'Carga un plan de SimBrief o ingrésalo a mano.'}" Foreground="{StaticResource TextFaint}"
+                                                   IsVisible="{Binding !HasPlan}" />
+                                        <ItemsControl ItemsSource="{Binding PlanWarnings}" IsVisible="{Binding HasPlanWarnings}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="x:String">
+                                                    <TextBlock Text="{Binding StringFormat='⚠ {0}'}" Foreground="{StaticResource Warn}" TextWrapping="Wrap" Margin="0,2" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <ItemsControl ItemsSource="{Binding PlanSummaryRows}" ItemTemplate="{StaticResource DiagItemTemplate}" />
+                                        <TextBlock Text="{Binding RunwayNote}" Foreground="{StaticResource TextBody}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding ProcedureStatus}" Foreground="{StaticResource TextDim}" FontSize="12" TextWrapping="Wrap" />
+                                        <Button Classes="small" Content="{app:T 'Volver a buscar procedimientos'}" Command="{Binding ReloadProceduresCommand}"
+                                                IsVisible="{Binding HasPlan}" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+                            <TabItem Header="{app:T 'Salida'}">
+                                <ScrollViewer Padding="14,6,14,14">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="{app:T 'PISTA DE SALIDA'}" Classes="label" Foreground="#7BE3A6" />
+                                        <ListBox Classes="runways" ItemsSource="{Binding DepartureRunwayOptions}"
+                                                 SelectedItem="{Binding SelectedDepartureRunway}" IsEnabled="{Binding CanPickDepartureRunway}"
+                                                 ItemTemplate="{StaticResource RunwayOptionTemplate}" />
+                                        <TextBlock Text="{Binding DepartureRunwayHint}" Foreground="{StaticResource TextDim}" FontSize="12" TextWrapping="Wrap" />
+                                        <TextBlock Text="{app:T 'SID (nombres del simulador; selecciónala a mano en el MCDU)'}" Classes="label" Foreground="#7BE3A6" Margin="0,6,0,0" />
+                                        <ComboBox ItemsSource="{Binding SidChoices}" SelectedItem="{Binding SelectedSid}" HorizontalAlignment="Stretch" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasSidTransitions}">
+                                            <TextBlock Classes="label" Text="{app:T 'Transición'}" VerticalAlignment="Center" />
+                                            <ComboBox ItemsSource="{Binding SidTransitions}" SelectedItem="{Binding SelectedSidTransition}" MinWidth="140"
+                                                      ToolTip.Tip="{app:T 'Por dónde sale la SID a tu ruta (la de SimBrief viene marcada). Elígela también en el MCDU.'}" />
+                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding SidWhy}" ItemTemplate="{StaticResource WhyTemplate}" />
+                                        <TextBlock Classes="label" Text="{app:T 'Las demás'}" Margin="0,6,0,0" />
+                                        <ItemsControl ItemsSource="{Binding SidOthers}" ItemTemplate="{StaticResource WhyTemplate}" />
+                                        <TextBlock Classes="label" Text="{app:T 'Tramos'}" Margin="0,6,0,0" />
+                                        <ItemsControl ItemsSource="{Binding SidLegs}" ItemTemplate="{StaticResource LegTemplate}" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+                            <TabItem Header="{app:T 'Llegada'}">
+                                <ScrollViewer Padding="14,6,14,14">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="{app:T 'PISTA DE LLEGADA'}" Classes="label" Foreground="#FF9F5A" />
+                                        <ListBox Classes="runways" ItemsSource="{Binding ArrivalRunwayOptions}"
+                                                 SelectedItem="{Binding SelectedArrivalRunway}" IsEnabled="{Binding CanPickArrivalRunway}"
+                                                 ItemTemplate="{StaticResource RunwayOptionTemplate}" />
+                                        <TextBlock Text="{Binding ArrivalRunwayHint}" Foreground="{StaticResource TextDim}" FontSize="12" TextWrapping="Wrap" />
+                                        <TextBlock Text="{app:T 'STAR (nombres del simulador)'}" Classes="label" Foreground="#FF9F5A" Margin="0,6,0,0" />
+                                        <ComboBox ItemsSource="{Binding StarChoices}" SelectedItem="{Binding SelectedStar}" HorizontalAlignment="Stretch" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasStarTransitions}">
+                                            <TextBlock Classes="label" Text="{app:T 'Transición'}" VerticalAlignment="Center" />
+                                            <ComboBox ItemsSource="{Binding StarTransitions}" SelectedItem="{Binding SelectedStarTransition}" MinWidth="140"
+                                                      ToolTip.Tip="{app:T 'Por dónde entra la STAR desde tu ruta (la de SimBrief viene marcada). Elígela también en el MCDU.'}" />
+                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding StarWhy}" ItemTemplate="{StaticResource WhyTemplate}" />
+                                        <TextBlock Classes="label" Text="{app:T 'Las demás'}" Margin="0,6,0,0" />
+                                        <ItemsControl ItemsSource="{Binding StarOthers}" ItemTemplate="{StaticResource WhyTemplate}" />
+                                        <TextBlock Classes="label" Text="{app:T 'Tramos'}" Margin="0,6,0,0" />
+                                        <ItemsControl ItemsSource="{Binding StarLegs}" ItemTemplate="{StaticResource LegTemplate}" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+                            <TabItem Header="{app:T 'Aproximación'}">
+                                <ScrollViewer Padding="14,6,14,14">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="{app:T 'APROXIMACIÓN (SimBrief no la trae: se recomienda la que empalma con la STAR)'}" Classes="label"
+                                                   Foreground="#4CC2FF" TextWrapping="Wrap" />
+                                        <ComboBox ItemsSource="{Binding ApproachChoices}" SelectedItem="{Binding SelectedApproach}" HorizontalAlignment="Stretch" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Classes="label" Text="{app:T 'Transición'}" VerticalAlignment="Center" />
+                                            <ComboBox ItemsSource="{Binding ApproachTransitions}" SelectedItem="{Binding SelectedApproachTransition}" MinWidth="140" />
+                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding ApproachWhy}" ItemTemplate="{StaticResource WhyTemplate}" />
+                                        <TextBlock Classes="label" Text="{app:T 'Tramos'}" Margin="0,6,0,0" />
+                                        <ItemsControl ItemsSource="{Binding ApproachLegs}" ItemTemplate="{StaticResource LegTemplate}" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+                            <TabItem Header="{app:T 'Ruta'}">
+                                <ScrollViewer Padding="14,6,14,14">
+                                    <StackPanel Spacing="6">
+                                        <Grid ColumnDefinitions="120,120,*">
+                                            <TextBlock Classes="label" Text="{app:T 'PUNTO'}" />
+                                            <TextBlock Classes="label" Grid.Column="1" Text="{app:T 'VÍA'}" />
+                                            <TextBlock Classes="label" Grid.Column="2" Text="{app:T 'ALTITUD PLANIFICADA'}" />
+                                        </Grid>
+                                        <ItemsControl ItemsSource="{Binding PlanFixes}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:PlanFixRow">
+                                                    <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="0,5">
+                                                        <Grid ColumnDefinitions="120,120,*">
+                                                            <TextBlock Classes="cell mono" Text="{Binding Ident}" Foreground="{StaticResource TextMain}" />
+                                                            <TextBlock Classes="cell mono" Grid.Column="1" Text="{Binding Airway}" />
+                                                            <TextBlock Classes="cell" Grid.Column="2" Text="{Binding Altitude}" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+                        </TabControl>
+                    </Border>
+
+                    <!-- Mapa fijo: ocupa todo el alto; los botones encuadran a mano -->
+                    <Border Grid.Column="2" Classes="card" Padding="0" ClipToBounds="True" MinWidth="360">
+                        <Grid RowDefinitions="Auto,*">
+                            <DockPanel Margin="14,8">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
+                                    <Button Classes="small" Content="{app:T 'Salida'}" Click="OnPreviewSid" />
+                                    <Button Classes="small" Content="{app:T 'Ruta completa'}" Click="OnPreviewRoute" />
+                                    <Button Classes="small" Content="{app:T 'Llegada'}" Click="OnPreviewArrival" />
+                                    <Button Classes="small" Content="{app:T 'Aproximación'}" Click="OnPreviewApproach" />
+                                </StackPanel>
+                                <TextBlock Classes="h2" Text="{app:T 'Mapa'}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <Panel Grid.Row="1" Background="{StaticResource BgRadar}">
+                                <radar:RadarView x:Name="PreviewRadar" Airport="{Binding Airport}" UserState="{Binding UserState}"
+                                                 PlanRoute="{Binding PlanRoute}" Procedures="{Binding ProcedureLines}"
+                                                 OtherAirports="{Binding PlanAirports}" ShowStands="True" ShowPlan="True"
+                                                 MaxFps="{Binding RadarFpsInt}" ArrivalRunways="{Binding RadarArrivalRunways}"
+                                                 DepartureRunways="{Binding RadarDepartureRunways}" />
+                                <Border Background="#D90E1621" VerticalAlignment="Bottom" Padding="10,5" CornerRadius="0,0,10,10">
+                                    <TextBlock Text="{app:T 'Línea continua: publicada · punteada: aproximada (rumbo hasta altitud con 500 ft/NM, giros y vectores) · pistas: verde llegadas, azul salidas, ámbar mixtas'}"
+                                               Foreground="{StaticResource TextDim}" FontSize="11" TextWrapping="Wrap" />
+                                </Border>
+                            </Panel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- Briefing de SimBrief: datos importantes y OFP completo -->
+            <DockPanel Classes="page" IsVisible="{Binding IsBriefing}" Margin="24">
+                <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,14">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="{app:T 'Abrir PDF en el navegador'}" Command="{Binding OpenPdfCommand}" IsVisible="{Binding HasPdf}" />
+                        <TextBlock Classes="h1" Text="{app:T 'Briefing'}" />
+                    </DockPanel>
+                    <TextBlock Text="{Binding BriefingNote}" Foreground="{StaticResource TextDim}" TextWrapping="Wrap" IsVisible="{Binding HasBriefing}" />
+                    <Border Classes="empty" IsVisible="{Binding !HasBriefing}" Margin="0,6,0,0">
+                        <StackPanel Spacing="10" HorizontalAlignment="Center" MaxWidth="520">
+                            <TextBlock Classes="h2" Text="{app:T 'Todavía no hay briefing'}" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding BriefingNote}" Foreground="{StaticResource TextDim}" TextWrapping="Wrap" TextAlignment="Center" />
+                            <TextBlock Foreground="{StaticResource TextFaint}" FontSize="12.5" TextWrapping="Wrap" TextAlignment="Center"
+                                       Text="{app:T 'El briefing sale del OFP de SimBrief: combustible, pesos, tiempos, METAR y NOTAM del vuelo.'}" />
+                            <Button Classes="primary" Content="{app:T 'Ir a Plan de vuelo'}" HorizontalAlignment="Center" Command="{Binding NavigateCommand}"
+                                    CommandParameter="plan" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="card" Padding="14" IsVisible="{Binding HasBriefing}" Margin="0,6,0,0">
+                        <StackPanel Spacing="6">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding BriefingCheckNote}" Foreground="{StaticResource TextFaint}"
+                                           FontSize="12" VerticalAlignment="Center" />
+                                <Button DockPanel.Dock="Right" Content="{app:T 'Aplicar OFP al avión'}" Command="{Binding ApplyOfpCommand}" Margin="0,0,10,0"
+                                        ToolTip.Tip="{app:T 'Carga el combustible y la carga del OFP y pone la matrícula y el vuelo (SimVars oficiales; algunos aviones complejos pueden ignorarlo)'}" />
+                                <TextBlock Classes="h2" Text="{app:T 'Tu avión vs OFP'}" />
+                            </DockPanel>
+                            <Grid ColumnDefinitions="240,140,170,*">
+                                <TextBlock Classes="label" Text="" />
+                                <TextBlock Classes="label" Grid.Column="1" Text="{app:T 'OFP'}" />
+                                <TextBlock Classes="label" Grid.Column="2" Text="{app:T 'TU AVIÓN'}" />
+                                <TextBlock Classes="label" Grid.Column="3" Text="{app:T 'NOTA'}" />
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding BriefingChecks}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:CheckView">
+                                        <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="0,4">
+                                            <Grid ColumnDefinitions="240,140,170,*">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="✓" Foreground="{StaticResource Ok}" IsVisible="{Binding Ok}" />
+                                                    <TextBlock Text="⚠" Foreground="{StaticResource Warn}" IsVisible="{Binding Warn}" />
+                                                    <TextBlock Text="•" Foreground="{StaticResource TextDim}" IsVisible="{Binding Info}" />
+                                                    <TextBlock Classes="cell" Text="{Binding Item}" />
+                                                </StackPanel>
+                                                <TextBlock Classes="cell mono" Grid.Column="1" Text="{Binding Planned}" />
+                                                <TextBlock Classes="cell mono" Grid.Column="2" Text="{Binding Actual}" TextTrimming="CharacterEllipsis"
+                                                           ToolTip.Tip="{Binding Actual}" />
+                                                <TextBlock Classes="cell" Classes.warn="{Binding Warn}" Grid.Column="3" Text="{Binding Note}" TextWrapping="Wrap" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                <Grid ColumnDefinitions="*,20,*">
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding BriefingSections}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="12" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:BriefingSection">
+                                    <Border Classes="card" Padding="14">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Classes="h2" Text="{Binding Title}" />
+                                            <ItemsControl ItemsSource="{Binding Items}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:DiagItem">
+                                                        <DockPanel Margin="0,2">
+                                                            <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextDim}" Width="160" TextWrapping="Wrap" />
+                                                            <TextBlock Classes="cell" Classes.warn="{Binding Warn}" Text="{Binding Value}" TextWrapping="Wrap" />
+                                                        </DockPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <Border Grid.Column="2" Classes="card" Padding="12" IsVisible="{Binding HasBriefing}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Classes="h2" Text="{app:T 'OFP completo'}" Margin="0,0,0,8" />
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto">
+                                <SelectableTextBlock Text="{Binding OfpText}" FontFamily="{StaticResource Mono}" FontSize="12"
+                                                     Foreground="{StaticResource TextBody}" TextWrapping="NoWrap" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </DockPanel>
+
+            <!-- Tráfico: tabla filtrable de todos los aviones, acciones por avión y salidas en lote -->
+            <DockPanel Classes="page" IsVisible="{Binding IsTrafficPanel}" Margin="24">
+                <StackPanel DockPanel.Dock="Top" Spacing="14" Margin="0,0,0,12">
+                    <DockPanel>
+                        <ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding TrafficPaused}" OnContent="{app:T 'Tráfico IA congelado'}"
+                                      OffContent="{app:T 'Tráfico IA corriendo'}" ToolTip.Tip="{app:T 'Congela los aviones IA (el simulador sigue). Para mirar con calma una situación.'}" />
+                        <TextBlock Classes="h1" Text="{app:T 'Tráfico'}" />
+                    </DockPanel>
+                    <!-- Llenado según el nivel de Configuración (ADR-109); las herramientas de prueba están en Diagnóstico. -->
+                    <Grid ColumnDefinitions="*,16,*">
+                        <Border Classes="card" Padding="14">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="h2" Text="{app:T 'Aeropuerto'}" />
+                                <WrapPanel>
+                                    <Button Classes="primary" Content="{app:T 'Rellenar ahora'}" Command="{Binding FillNowCommand}" Margin="0,0,8,6"
+                                            ToolTip.Tip="{app:T 'Reemplaza los estacionados según el nivel de tráfico elegido en Configuración'}" />
+                                    <Button Content="{app:T 'Limpiar todo el tráfico'}" Command="{Binding ClearTrafficCommand}" Margin="0,0,8,6" />
+                                </WrapPanel>
+                                <TextBlock Classes="label" TextWrapping="Wrap">
+                                    <Run Text="{app:T 'Nivel: '}" /><Run Text="{Binding SelectedTrafficLevel.Label, FallbackValue=''}" Foreground="{StaticResource Accent}" />
+                                    <Run Text="{app:T ' (se cambia en Configuración → Tráfico).'}" />
+                                </TextBlock>
+                                <TextBlock Text="{Binding ParkedBreakdown}" TextWrapping="Wrap" Foreground="{StaticResource TextBody}" FontSize="12.5" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Classes="card" Padding="14">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="h2" Text="{app:T 'Pistas y aerolíneas'}" />
+                                <TextBlock Text="{Binding ActiveRunwayText}" Foreground="{StaticResource Accent}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding AirlineBreakdown}" TextWrapping="Wrap" Foreground="{StaticResource TextBody}" FontSize="12.5" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <TextBlock Text="{Binding TrafficStatus}" Foreground="{StaticResource TextBody}" TextWrapping="Wrap" />
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding TrafficCounts}" Foreground="{StaticResource TextDim}" VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <ComboBox ItemsSource="{Binding TrafficFilters}" SelectedItem="{Binding SelectedTrafficFilter}" Width="160" />
+                            <TextBox Text="{Binding TrafficSearch}" PlaceholderText="{app:T 'Buscar indicativo, tipo, aerolínea o puesto'}" Width="320" />
+                        </StackPanel>
+                    </DockPanel>
+                    <Grid ColumnDefinitions="110,70,70,150,230,60,70,*,190" Margin="12,0">
+                        <TextBlock Classes="label" Text="{app:T 'INDICATIVO'}" />
+                        <TextBlock Classes="label" Grid.Column="1" Text="{app:T 'TIPO'}" />
+                        <TextBlock Classes="label" Grid.Column="2" Text="{app:T 'CÍA'}" />
+                        <TextBlock Classes="label" Grid.Column="3" Text="{app:T 'PUESTO'}" />
+                        <TextBlock Classes="label" Grid.Column="4" Text="{app:T 'FASE'}" />
+                        <TextBlock Classes="label" Grid.Column="5" Text="{app:T 'PISTA'}" />
+                        <TextBlock Classes="label" Grid.Column="6" Text="{app:T 'DIST.'}" />
+                        <TextBlock Classes="label" Grid.Column="7" Text="{app:T 'ESPERA'}" />
+                    </Grid>
+                </StackPanel>
+                <Border Classes="card" Padding="0">
+                    <Panel>
+                        <TextBlock Text="{app:T 'No hay aviones que mostrar.'}" Foreground="{StaticResource TextFaint}" Margin="16"
+                                   IsVisible="{Binding HasNoTrafficRows}" />
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding TrafficRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:TrafficRow">
+                                        <Border Classes="row" Classes.selected="{Binding IsSelected}" BorderBrush="{StaticResource Line}"
+                                                BorderThickness="0,0,0,1" Padding="12,6" Background="Transparent" Cursor="Hand"
+                                                Tapped="OnTrafficRowTapped" ToolTip.Tip="{app:T 'Clic para ver su ficha completa y su ruta'}">
+                                          <StackPanel>
+                                            <Grid ColumnDefinitions="110,70,70,150,230,60,70,*,190">
+                                                <TextBlock Classes="cell mono" Text="{Binding Callsign}" Foreground="{StaticResource TextMain}" />
+                                                <TextBlock Classes="cell" Grid.Column="1" Text="{Binding Type}" />
+                                                <TextBlock Classes="cell" Grid.Column="2" Text="{Binding Airline}" />
+                                                <TextBlock Classes="cell" Grid.Column="3" Text="{Binding From}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Classes="cell" Grid.Column="4" Text="{Binding Phase}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Classes="cell mono" Grid.Column="5" Text="{Binding Runway}" />
+                                                <TextBlock Classes="cell mono" Grid.Column="6" Text="{Binding Distance}" />
+                                                <TextBlock Classes="cell" Classes.warn="{Binding Waiting}" Grid.Column="7" Text="{Binding Hold}"
+                                                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Hold}" />
+                                                <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
+                                                    <Button Classes="small" Content="{app:T 'Ver'}" ToolTip.Tip="{app:T 'Mostrarlo en el radar y seguirlo'}"
+                                                            Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).ShowOnRadarCommand}" CommandParameter="{Binding}" />
+                                                    <Button Classes="small" Content="{app:T 'Lanzar'}" IsVisible="{Binding IsParked}" ToolTip.Tip="{app:T 'Que salga por la pista elegida'}"
+                                                            Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).LaunchThisCommand}" CommandParameter="{Binding}" />
+                                                    <Button Classes="small" Content="{app:T 'Quitar'}" ToolTip.Tip="{app:T 'Retirar solo este avión'}"
+                                                            Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).RemoveAircraftCommand}" CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                            </Grid>
+                                            <!-- Ficha desplegada: todo su plan, para diagnosticar (sin cortar palabras) -->
+                                            <Border IsVisible="{Binding IsExpanded}" Margin="0,10,0,4" Padding="12" CornerRadius="6"
+                                                    Background="{StaticResource Line}">
+                                              <StackPanel Spacing="10">
+                                                <ItemsControl ItemsSource="{Binding DetailRows}">
+                                                  <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:InspectorRow">
+                                                      <Grid ColumnDefinitions="150,*" Margin="0,1">
+                                                        <TextBlock Classes="label" Text="{Binding Label}" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" Foreground="{StaticResource TextMain}" />
+                                                      </Grid>
+                                                    </DataTemplate>
+                                                  </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <StackPanel IsVisible="{Binding HasFixes}" Spacing="2">
+                                                  <Grid ColumnDefinitions="110,120,220,190,*">
+                                                    <TextBlock Classes="label" Text="{app:T 'TRAMO'}" />
+                                                    <TextBlock Classes="label" Grid.Column="1" Text="{app:T 'FIJO'}" />
+                                                    <TextBlock Classes="label" Grid.Column="2" Text="{app:T 'RESTRICCIÓN (CARTA)'}" />
+                                                    <TextBlock Classes="label" Grid.Column="3" Text="{app:T 'PREVISTA'}" />
+                                                    <TextBlock Classes="label" Grid.Column="4" Text="{app:T 'HORA (UTC)'}" />
+                                                  </Grid>
+                                                  <ItemsControl ItemsSource="{Binding Fixes}">
+                                                    <ItemsControl.ItemTemplate>
+                                                      <DataTemplate x:DataType="vm:WaypointRow">
+                                                        <Grid ColumnDefinitions="110,120,220,190,*" Opacity="{Binding Passed, Converter={x:Static BoolConverters.Not}}">
+                                                          <TextBlock Text="{Binding Leg}" />
+                                                          <TextBlock Grid.Column="1" Classes="mono" Text="{Binding Name}" Foreground="{StaticResource TextMain}" />
+                                                          <TextBlock Grid.Column="2" Text="{Binding Constraint}" TextWrapping="Wrap" />
+                                                          <TextBlock Grid.Column="3" Classes="mono" Text="{Binding Planned}" />
+                                                          <TextBlock Grid.Column="4" Classes="mono" Text="{Binding Eta}" />
+                                                        </Grid>
+                                                      </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                  </ItemsControl>
+                                                </StackPanel>
+                                              </StackPanel>
+                                            </Border>
+                                          </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Panel>
+                </Border>
+            </DockPanel>
+
+            <!-- Configuración (RF-41): se guarda al cambiar -->
+            <ScrollViewer Classes="page" IsVisible="{Binding IsSettings}" Padding="24">
+                <!-- Configuración (ADR-089): centrada, dos columnas que se llenan solas (sin huecos) y los modelos abajo a lo ancho -->
+                <StackPanel Spacing="16" MaxWidth="1180" HorizontalAlignment="Center">
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="h1" Text="{app:T 'Configuración'}" />
+                        <TextBlock Classes="label" Text="{app:T 'Los cambios se guardan solos.'}" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="*,16,*">
+                        <!-- Columna izquierda: ATC y radio, Voz -->
+                        <StackPanel Grid.Column="0" Spacing="16">
+                            <Border Classes="card">
+                                <StackPanel Spacing="12">
+                                    <StackPanel Spacing="2">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,10">
+                                            <TextBlock Text="{app:T 'Idioma de la interfaz'}" VerticalAlignment="Center" />
+                                            <ComboBox Grid.Column="1" ItemsSource="{Binding UiLanguageChoices}" SelectedItem="{Binding SelectedUiLanguage}" Width="240" />
+                                        </Grid>
+                                        <TextBlock Classes="h2" Text="{app:T 'ATC y radio'}" />
+                                        <TextBlock Classes="label" TextWrapping="Wrap" Text="{app:T 'Cómo hablas con el ATC y cómo te responde.'}" />
+                                    </StackPanel>
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+                                        <TextBlock Grid.Row="0" Text="{app:T 'Modo'}" VerticalAlignment="Center" />
+                                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding ModeChoices}" SelectedItem="{Binding SelectedMode}" Width="240" />
+                                        <TextBlock Grid.Row="1" Text="{app:T 'Idioma del ATC, los IA y el copiloto'}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding AtcLanguageChoices}" SelectedItem="{Binding SelectedAtcLanguage}" Width="240" />
+                                        <TextBlock Grid.Row="5" Text="{app:T 'Fraseología en inglés (FAA: «climb and maintain», «runway 27, taxi via…»)'}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <ComboBox Grid.Row="5" Grid.Column="1" ItemsSource="{Binding PhraseologyChoices}" SelectedItem="{Binding SelectedPhraseology}" Width="240" />
+                                        <TextBlock Grid.Row="6" Text="{app:T 'Vigilancia de la aproximación (altura, senda y motor y al aire si no estás estabilizado)'}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <ComboBox Grid.Row="6" Grid.Column="1" ItemsSource="{Binding ApproachWatchChoices}" SelectedItem="{Binding SelectedApproachWatch}" Width="240"
+                                                  ToolTip.Tip="{app:T 'Solo avisos: te dice altura y velocidad pero nunca ordena motor y al aire. Apagada: sin avisos de altura ni de senda (la velocidad y la secuencia siguen).'}" />
+                                        <TextBlock Grid.Row="2" Text="{app:T 'Exigencia de las colaciones'}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding StrictnessChoices}" SelectedItem="{Binding SelectedStrictness}" Width="240" />
+                                        <TextBlock Grid.Row="3" Text="{app:T 'Tiempo para colacionar antes de que te llamen'}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding ReadbackTimeChoices}" SelectedItem="{Binding SelectedReadbackTime}" Width="240" />
+                                        <TextBlock Grid.Row="4" Text="{app:T 'Radio de los botones «Sintonizar»'}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <ComboBox Grid.Row="4" Grid.Column="1" ItemsSource="{Binding TuneRadioChoices}" SelectedItem="{Binding SelectedTuneRadio}" Width="240" />
+                                    </Grid>
+                                    <CheckBox IsChecked="{Binding TuneToStandby}">
+                                        <TextBlock TextWrapping="Wrap" Text="{app:T '«Sintonizar» deja la frecuencia en standby (la pasas a activa con ⇄, más realista)'}" />
+                                    </CheckBox>
+                                    <CheckBox IsChecked="{Binding UsePlanRunways}" ToolTip.Tip="{app:T 'Si la pista del plan está en uso (el sentido que da el viento), el ATC te la asigna aunque los IA salgan por otra'}">
+                                        <TextBlock TextWrapping="Wrap" Text="{app:T 'Respetar las pistas del plan de SimBrief'}" />
+                                    </CheckBox>
+                                    <CheckBox Content="{app:T 'Sonido corto cuando el ATC me habla'}" IsChecked="{Binding MessageSound}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="card">
+                                <StackPanel Spacing="12">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Classes="h2" Text="{app:T 'Voz'}" />
+                                        <TextBlock Classes="label" TextWrapping="Wrap"
+                                                   Text="{app:T 'Voces locales (Piper, en la CPU, sin internet) con efecto de radio para el ATC, los IA, el copiloto y el personal de tierra.'}" />
+                                    </StackPanel>
+                                    <StackPanel Spacing="8" IsVisible="{Binding VoiceNotInstalled}">
+                                        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextBody}"
+                                                   Text="{app:T 'Se instala una vez: Piper para Windows y 7 voces (3 en inglés, 4 en español), todas con licencia libre.'}" />
+                                        <Button Content="{Binding VoiceInstallText}" Command="{Binding InstallVoiceCommand}" HorizontalAlignment="Left" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding VoiceStatus}" Foreground="{StaticResource TextDim}" TextWrapping="Wrap" />
+                                    <StackPanel Spacing="12" IsVisible="{Binding VoiceInstalled}">
+                                        <CheckBox Content="{app:T 'Voz activada'}" IsChecked="{Binding VoiceEnabled}" />
+                                        <!-- Kokoro: interruptor para encenderlo o apagarlo (apagado, el ATC habla con Piper y Kokoro no usa memoria). -->
+                                        <Border Background="#0DFFFFFF" CornerRadius="8" Padding="12,8">
+                                            <StackPanel Spacing="4">
+                                                <DockPanel>
+                                                    <Button DockPanel.Dock="Right" Content="▶" ToolTip.Tip="{app:T 'Probar Kokoro'}" Command="{Binding DemoKokoroCommand}" Width="34"
+                                                            VerticalAlignment="Center" Margin="8,0,0,0" IsEnabled="{Binding VoiceKokoroAtc}" />
+                                                    <ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding VoiceKokoroAtc}" OnContent="{app:T 'Activado'}" OffContent="{app:T 'Desactivado'}"
+                                                                  VerticalAlignment="Center" MinWidth="0" />
+                                                    <TextBlock Text="{app:T 'Kokoro (voz más natural para el ATC)'}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                                </DockPanel>
+                                                <TextBlock Text="{Binding KokoroLabel}" Classes="label" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding KokoroStatus}" Foreground="{StaticResource TextDim}" TextWrapping="Wrap" FontSize="12.5" />
+                                            </StackPanel>
+                                        </Border>
+                                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+                                            <TextBlock Grid.Row="0" Text="{app:T 'Volumen'}" VerticalAlignment="Center" />
+                                            <Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding VoiceVolumePercent}" Width="240" />
+                                            <TextBlock Grid.Row="1" Text="{app:T 'Velocidad al hablar'}" VerticalAlignment="Center" />
+                                            <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding VoiceSpeedChoices}" SelectedItem="{Binding SelectedVoiceSpeed}" Width="240" />
+                                            <TextBlock Grid.Row="2" Text="{app:T 'ATC'}" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                                <ComboBox ItemsSource="{Binding VoiceChoices}" SelectedItem="{Binding SelectedVoiceAtc}" Width="200" />
+                                                <Button Content="▶" ToolTip.Tip="{app:T 'Probar'}" Command="{Binding DemoVoiceCommand}" CommandParameter="atc" Width="34" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Row="3" Text="{app:T 'Pilotos IA'}" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                                <ComboBox ItemsSource="{Binding VoiceChoices}" SelectedItem="{Binding SelectedVoicePilots}" Width="200" />
+                                                <Button Content="▶" ToolTip.Tip="{app:T 'Probar'}" Command="{Binding DemoVoiceCommand}" CommandParameter="pilots" Width="34" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Row="4" Text="{app:T 'Copiloto y personal de tierra'}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                                <ComboBox ItemsSource="{Binding VoiceChoices}" SelectedItem="{Binding SelectedVoiceCopilot}" Width="200" />
+                                                <Button Content="▶" ToolTip.Tip="{app:T 'Probar'}" Command="{Binding DemoVoiceCommand}" CommandParameter="copilot" Width="34" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <CheckBox Content="{app:T 'Seguir la perilla de volumen de la radio del avión'}" IsChecked="{Binding VoiceFollowComVolume}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <!-- Micrófono (RF-32, ADR-126): hablarle al ATC con una tecla o con el micrófono que se abre solo al colacionar. -->
+                            <Border Classes="card">
+                                <StackPanel Spacing="12">
+                                    <DockPanel>
+                                        <ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding MicEnabled}" OnContent="{app:T 'Activado'}" OffContent="{app:T 'Desactivado'}"
+                                                      VerticalAlignment="Top" MinWidth="0" />
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Classes="h2" Text="{app:T 'Micrófono'}" />
+                                            <TextBlock Classes="label" TextWrapping="Wrap"
+                                                       Text="{app:T 'Háblale al ATC: lo que dices se reconoce en tu PC (Whisper, en la CPU, sin internet) y se compara con las frases que corresponden en ese momento.'}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <StackPanel Spacing="8" IsVisible="{Binding SttNotInstalled}">
+                                        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextBody}"
+                                                   Text="{app:T 'El reconocimiento de voz se instala una vez (modelo Whisper «base», licencia MIT). Entiende inglés y español.'}" />
+                                        <Button Classes="primary" Content="{Binding SttInstallText}" Command="{Binding InstallSttCommand}" HorizontalAlignment="Left" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding MicStatus}" Foreground="{StaticResource TextDim}" TextWrapping="Wrap"
+                                               IsVisible="{Binding MicStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    <StackPanel Spacing="12" IsEnabled="{Binding MicEnabled}">
+                                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+                                            <TextBlock Grid.Row="0" Text="{app:T 'Micrófono'}" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                                <ComboBox ItemsSource="{Binding MicDevices}" SelectedItem="{Binding SelectedMicDevice}" Width="240" />
+                                                <Button Content="↻" ToolTip.Tip="{app:T 'Volver a buscar micrófonos'}" Command="{Binding RefreshMicDevicesCommand}" Width="34" />
+                                            </StackPanel>
+                                            <!-- Nivel en vivo; debajo, con el mismo ancho, el umbral: lo que pasa de la marca cuenta como voz. -->
+                                            <TextBlock Grid.Row="1" Text="{app:T 'Nivel'}" VerticalAlignment="Center" />
+                                            <Panel Grid.Row="1" Grid.Column="1" Width="280" HorizontalAlignment="Left">
+                                                <ProgressBar Classes="mic" Classes.speaking="{Binding MicSpeaking}" Value="{Binding MicLevel}" Minimum="0" Maximum="100"
+                                                             Height="12" MinHeight="12" MinWidth="0" />
+                                            </Panel>
+                                            <StackPanel Grid.Row="2" VerticalAlignment="Center">
+                                                <TextBlock Text="{app:T 'Sensibilidad (umbral de voz)'}" TextWrapping="Wrap" />
+                                                <TextBlock Classes="label" FontSize="11.5" TextWrapping="Wrap" Text="{app:T 'Súbelo si el ruido de fondo abre el micrófono; bájalo si no te detecta.'}" />
+                                            </StackPanel>
+                                            <Slider Grid.Row="2" Grid.Column="1" Minimum="5" Maximum="95" Value="{Binding MicThresholdPercent}" Width="280"
+                                                    HorizontalAlignment="Left" ToolTip.Tip="{app:T 'El nivel tiene que pasar esta marca para contar como que estás hablando'}" />
+                                            <TextBlock Grid.Row="3" Text="{app:T 'Ganancia del micrófono'}" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                                <Slider Minimum="10" Maximum="300" Value="{Binding MicGainPercent}" Width="220" />
+                                                <TextBlock Text="{Binding MicGainText}" Classes="mono" VerticalAlignment="Center" Width="52" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Row="4" Text="{app:T 'Tecla para hablar'}" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                                <Border Classes="chip" MinWidth="150">
+                                                    <TextBlock Text="{Binding PttKeyText}" Foreground="{StaticResource Freq}" FontWeight="SemiBold" />
+                                                </Border>
+                                                <Button Content="{app:T 'Elegir…'}" Command="{Binding ChoosePttKeyCommand}"
+                                                        ToolTip.Tip="{app:T 'Después de hacer clic, presiona la tecla que quieras usar (funciona con el simulador en primer plano)'}" />
+                                                <Button Content="{app:T 'Quitar'}" Command="{Binding ClearPttKeyCommand}" IsVisible="{Binding HasPttKey}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button Content="{app:T 'Probar: grabar 4 s y escucharme'}" Command="{Binding TestMicCommand}"
+                                                    ToolTip.Tip="{app:T 'Graba 4 segundos, te los hace escuchar y muestra lo que entendió el reconocimiento'}" />
+                                        </StackPanel>
+                                        <CheckBox IsChecked="{Binding MicAutoListen}">
+                                            <TextBlock TextWrapping="Wrap" Text="{app:T 'Abrir el micrófono solo cuando tengo que colacionar (con un pitido) y cerrarlo cuando dejo de hablar'}" />
+                                        </CheckBox>
+                                        <CheckBox Content="{app:T 'Pitido al abrir y al cerrar el micrófono'}" IsChecked="{Binding MicBeepOn}" />
+                                        <CheckBox IsChecked="{Binding MicAutoSend}">
+                                            <TextBlock TextWrapping="Wrap" Text="{app:T 'Enviar solo si lo que dije calza con una frase esperada (si no, queda escrito para corregirlo)'}" />
+                                        </CheckBox>
+                                        <CheckBox IsChecked="{Binding MicLivePreview}">
+                                            <TextBlock TextWrapping="Wrap" Text="{app:T 'Mostrar en el campo de texto lo que voy diciendo, mientras hablo (usa algo de CPU mientras el micrófono está abierto)'}" />
+                                        </CheckBox>
+                                        <TextBlock Classes="label" TextWrapping="Wrap"
+                                                   Text="{app:T 'La tecla funciona siempre, también con el automático activado. Si dices otro número que el de la instrucción, se envía lo que dijiste y el ATC te corrige. El botón del joystick todavía no se puede usar.'}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <!-- Columna derecha: Copiloto, Tráfico, Interfaz -->
+                        <StackPanel Grid.Column="2" Spacing="16">
+                            <Border Classes="card">
+                                <StackPanel Spacing="12">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Classes="h2" Text="{app:T 'Copiloto'}" />
+                                        <TextBlock Classes="label" TextWrapping="Wrap" Text="{app:T 'En modo «Copiloto» hace todo. En Texto o Voz, solo lo que elijas aquí.'}" />
+                                    </StackPanel>
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                        <TextBlock Text="{app:T 'Colaciona por mí'}" VerticalAlignment="Center" />
+                                        <ComboBox Grid.Column="1" ItemsSource="{Binding CopilotReadbackChoices}" SelectedItem="{Binding SelectedCopilotReadbacks}" Width="240" />
+                                    </Grid>
+                                    <CheckBox IsChecked="{Binding CopilotRoutineCalls}">
+                                        <TextBlock TextWrapping="Wrap" Text="{app:T 'Hace los llamados de rutina (autorización, pushback, rodaje, listo para salida)'}" />
+                                    </CheckBox>
+                                    <StackPanel Spacing="4" Margin="24,0,0,0">
+                                        <TextBlock Classes="label" TextWrapping="Wrap" Text="{app:T 'Me pregunta antes de pedir (sin marcar, lo pide solo cuando corresponde):'}" />
+                                        <CheckBox IsChecked="{Binding CopilotAskClearance}" Content="{app:T 'La autorización IFR'}" />
+                                        <CheckBox IsChecked="{Binding CopilotAskPushback}" Content="{app:T 'El pushback'}" />
+                                        <CheckBox IsChecked="{Binding CopilotAskTaxi}">
+                                            <TextBlock TextWrapping="Wrap" Text="{app:T 'El rodaje (si no: al terminar el pushback, con motores encendidos)'}" />
+                                        </CheckBox>
+                                        <CheckBox IsChecked="{Binding CopilotAskReady}">
+                                            <TextBlock TextWrapping="Wrap" Text="{app:T '«Listo para salida» (si no: al detenerme en el punto de espera)'}" />
+                                        </CheckBox>
+                                    </StackPanel>
+                                    <CheckBox IsChecked="{Binding CopilotRescue}">
+                                        <TextBlock TextWrapping="Wrap" Text="{app:T 'Contesta por mí si no colaciono a tiempo'}" />
+                                    </CheckBox>
+                                    <CheckBox IsChecked="{Binding CopilotTunesCom1}">
+                                        <TextBlock TextWrapping="Wrap" Text="{app:T 'Sintoniza la frecuencia: al colacionar un cambio y antes de hablar o de preguntarme'}" />
+                                    </CheckBox>
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="card">
+                                <StackPanel Spacing="12">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Classes="h2" Text="{app:T 'Tráfico'}" />
+                                        <TextBlock Classes="label" TextWrapping="Wrap"
+                                                   Text="{app:T 'Aviones estacionados, salidas, llegadas y vuelos de la zona, con aerolíneas reales del aeropuerto (vuelos reales por indicativo, rutas de VATSIM o por aerovías del simulador).'}" />
+                                    </StackPanel>
+                                    <CheckBox IsChecked="{Binding AutoTraffic}">
+                                        <TextBlock TextWrapping="Wrap" Text="{app:T 'Tráfico automático: al cargar un aeropuerto se llena solo y empiezan las salidas y llegadas'}" />
+                                    </CheckBox>
+                                    <!-- Nivel (ADR-109): lo que se elige normalmente; lo técnico va en Avanzado. -->
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+                                        <TextBlock Grid.Row="0" Text="{app:T 'Nivel de tráfico'}" VerticalAlignment="Center" />
+                                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding TrafficLevelChoices}" SelectedItem="{Binding SelectedTrafficLevel}" Width="240" />
+                                        <TextBlock Grid.Row="1" Text="{app:T 'Aviones estacionados (se llena hasta donde quepa)'}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                                   IsVisible="{Binding IsCustomTraffic}" />
+                                        <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding CustomParked}" Minimum="0" Maximum="200" Increment="10" FormatString="0" Width="140"
+                                                       IsVisible="{Binding IsCustomTraffic}" HorizontalAlignment="Right" />
+                                    </Grid>
+                                    <TextBlock Text="{Binding TrafficLevelHelp}" TextWrapping="Wrap" Foreground="{StaticResource TextBody}" FontSize="12.5" />
+                                    <Border Background="#14FFFFFF" CornerRadius="6" Padding="10,8">
+                                        <TextBlock Text="{Binding TrafficLevelSummary}" TextWrapping="Wrap" Foreground="{StaticResource TextMain}" FontSize="12.5" />
+                                    </Border>
+                                    <TextBlock Classes="label" TextWrapping="Wrap"
+                                               Text="{app:T 'Cómo funciona: los puestos se eligen al azar y cada avión va donde cabe (fuselaje ancho en puertas grandes, carga en plataformas de carga). Los de plataformas remotas y de aviación general son decoración: nunca salen. Siempre quedan puestos libres para las llegadas de la próxima hora; si escasean, la próxima salida se adelanta (rotación). El nivel se aplica al llenar el aeropuerto: usa «Rellenar ahora» en Tráfico para verlo al momento.'}" />
+                                    <Expander Header="{app:T 'Avanzado (rendimiento)'}" HorizontalAlignment="Stretch">
+                                        <StackPanel Spacing="10">
+                                            <TextBlock Classes="label" TextWrapping="Wrap"
+                                                       Text="{app:T 'Estos límites cuidan los FPS. Los estacionados no gastan CPU pero sí memoria de video; los que se mueven gastan las dos.'}" />
+                                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+                                                <TextBlock Grid.Row="0" Text="{app:T 'Salidas y llegadas, % del horario real (solo Personalizado)'}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                                <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding TrafficDensity}" Minimum="0" Maximum="300" Increment="10" FormatString="0" Width="140"
+                                                               IsEnabled="{Binding IsCustomTraffic}" />
+                                                <TextBlock Grid.Row="1" Text="{app:T 'Aviones en el aire, máximo (solo Personalizado)'}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding MaxAir}" Minimum="0" Maximum="40" Increment="1" FormatString="0" Width="140"
+                                                               IsEnabled="{Binding IsCustomTraffic}" />
+                                                <TextBlock Grid.Row="2" Text="{app:T 'Aviones rodando o saliendo a la vez, máximo'}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                                <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding MaxGround}" Minimum="1" Maximum="80" Increment="1" FormatString="0" Width="140" />
+                                                <TextBlock Grid.Row="3" Text="{app:T 'Radio de carga en el simulador (NM)'}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                                           ToolTip.Tip="{app:T 'Dentro de este radio los vuelos están en el simulador; fuera siguen volando, virtuales, y vuelven al acercarte'}" />
+                                                <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding InjectRadiusNm}" Minimum="20" Maximum="100" Increment="5" FormatString="0" Width="140" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Expander>
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="card">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Classes="h2" Text="{app:T 'Interfaz'}" />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                        <TextBlock Text="{app:T 'FPS máximos del radar'}" VerticalAlignment="Center" />
+                                        <NumericUpDown Grid.Column="1" Value="{Binding RadarFps}" Minimum="5" Maximum="60" Increment="5" FormatString="0" Width="140" />
+                                    </Grid>
+                                    <CheckBox Content="{app:T 'Panel compacto siempre encima'}" IsChecked="{Binding CompactAlwaysOnTop}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                    <!-- Modelos a lo ancho -->
+                    <Border Classes="card">
+                        <StackPanel Spacing="12">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+                                    <Button Content="{app:T 'Agregar carpeta…'}" Click="OnAddModelFolder" />
+                                    <Button Content="{app:T 'Revisar modelos ahora'}" Command="{Binding ReloadCatalogCommand}" />
+                                </StackPanel>
+                                <StackPanel Spacing="2">
+                                    <TextBlock Classes="h2" Text="{app:T 'Modelos de tráfico'}" />
+                                    <TextBlock Classes="label" TextWrapping="Wrap"
+                                               Text="{app:T 'Modelos de FSLTL y AIG instalados. Las carpetas Community se detectan solas; agrega otra si tienes los paquetes en otro lugar.'}" />
+                                </StackPanel>
+                            </DockPanel>
+                            <Grid ColumnDefinitions="*,16,*">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Classes="label" Text="{app:T 'Detectadas automáticamente'}" />
+                                    <ItemsControl ItemsSource="{Binding DetectedModelFolders}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <TextBlock Text="{Binding}" Classes="mono" FontSize="12" Foreground="{StaticResource TextBody}" TextWrapping="Wrap" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Spacing="6">
+                                    <TextBlock Classes="label" Text="{app:T 'Agregadas por ti'}" />
+                                    <TextBlock Text="{app:T 'Ninguna.'}" Foreground="{StaticResource TextDim}" IsVisible="{Binding !HasExtraModelFolders}" />
+                                    <ItemsControl ItemsSource="{Binding ExtraModelFolders}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <DockPanel Margin="0,2">
+                                                    <Button DockPanel.Dock="Right" Classes="small" Content="{app:T 'Quitar'}"
+                                                            Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).RemoveModelFolderCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                    <TextBlock Text="{Binding}" Classes="mono" FontSize="12" Foreground="{StaticResource TextBody}"
+                                                               TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    <!-- Acerca de (ADR-150): versión, licencia, sin afiliación, créditos y código fuente. -->
+                    <Border Classes="card">
+                        <DockPanel>
+                            <Image DockPanel.Dock="Left" Source="/Assets/simatc-64.png" Width="48" Height="48" Margin="0,0,16,0" VerticalAlignment="Top" />
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="h2" Text="{Binding AboutTitle}" />
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextBody}"
+                                           Text="{app:T 'Control aéreo y tráfico IA para Microsoft Flight Simulator 2024. Software libre con licencia GPL-3.0. © 2026 ExOBrienX.'}" />
+                                <TextBlock Classes="label" TextWrapping="Wrap"
+                                           Text="{app:T 'Proyecto independiente: no está afiliado a Microsoft, Asobo, VATSIM, Navigraph (SimBrief), FSLTL ni AIG, ni cuenta con su respaldo.'}" />
+                                <TextBlock Classes="label" TextWrapping="Wrap"
+                                           Text="{app:T 'Créditos: interfaz con Avalonia; voces con Piper y Kokoro; micrófono con Whisper; límites de FIR del VATSpy Data Project (CC BY-SA 4.0); telefonías y destinos de Wikipedia (CC BY-SA 4.0) y OpenFlights (ODbL); rutas de standing-data (CC0); mapa de Natural Earth. Pistas, procedimientos y navegación salen del simulador.'}" />
+                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                    <Button Content="{app:T 'Licencias y créditos'}" Command="{Binding OpenNoticesCommand}" />
+                                    <Button Content="{app:T 'Textos de licencia'}" Command="{Binding OpenLicenseFolderCommand}" />
+                                    <Button Content="{app:T 'Código fuente'}" Command="{Binding OpenSourceCommand}" />
+                                    <Button Content="{app:T 'Enviar comentarios o un bug'}" Command="{Binding OpenFeedbackCommand}"
+                                            ToolTip.Tip="{app:T 'Formulario anónimo, sin iniciar sesión. Para un bug, adjunta el enlace a tus logs (Diagnóstico → Abrir carpeta de datos → logs).'}" />
+                                </StackPanel>
+                                <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,6,0,0"
+                                           Text="{app:T 'LUAW es gratis y lo seguirá siendo. Si te gusta, puedes apoyar su desarrollo con una donación voluntaria.'}" />
+                                <Button Classes="primary" HorizontalAlignment="Left" Content="{app:T 'Apoyar en Ko-fi'}" Command="{Binding OpenDonateCommand}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Mis vuelos: resumen del último vuelo terminado e historial (ADR-088) -->
+            <!-- Manual del ATC (ADR-135): por fase, con buscador; cada frase con su pronunciación y un botón para oírla. -->
+            <DockPanel Classes="page" IsVisible="{Binding IsManual}" Margin="24,20,24,0">
+                <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,12">
+                    <DockPanel>
+                        <TextBox DockPanel.Dock="Right" Width="320" Watermark="{app:T 'Buscar: pushback, descenso, frustrada…'}" Text="{Binding ManualQuery}" />
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h1" Text="{app:T 'Manual del ATC'}" />
+                            <TextBlock Classes="label" TextWrapping="Wrap"
+                                       Text="{app:T 'Qué decir en cada fase y qué te responde el ATC, con las mismas frases que usa la app (idioma y estilo de Configuración). Los ejemplos usan tu plan cargado (sin plan, un vuelo genérico).'}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock Text="{Binding ManualStatus}" Foreground="{StaticResource Warn}" TextWrapping="Wrap"
+                               IsVisible="{Binding ManualStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding ManualSections}" Margin="0,0,0,24">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ManualSection">
+                                <StackPanel Spacing="8" Margin="0,0,0,18">
+                                    <TextBlock Classes="h2" Text="{Binding Name}" Foreground="{StaticResource Accent}" />
+                                    <ItemsControl ItemsSource="{Binding Entries}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="2" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="comms:ManualEntry">
+                                                <Border Classes="card" Margin="0,0,12,12" Padding="14,12">
+                                                    <StackPanel Spacing="8">
+                                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Foreground="{StaticResource TextMain}" FontSize="14" />
+                                                        <Grid ColumnDefinitions="38,*,Auto" IsVisible="{Binding HasPilot}">
+                                                            <TextBlock Text="{app:T 'Tú'}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Ok}" Margin="0,2,0,0" />
+                                                            <StackPanel Grid.Column="1" Spacing="1">
+                                                                <SelectableTextBlock Text="{Binding Pilot}" FontFamily="{StaticResource Mono}" FontSize="12.5"
+                                                                                     Foreground="{StaticResource TextMain}" TextWrapping="Wrap" />
+                                                                <TextBlock Text="{Binding PilotSpoken}" FontStyle="Italic" FontSize="11.5" Foreground="{StaticResource TextDim}" TextWrapping="Wrap" />
+                                                            </StackPanel>
+                                                            <Button Grid.Column="2" Classes="small" Content="▶" VerticalAlignment="Top" Margin="6,0,0,0" ToolTip.Tip="{app:T 'Oír'}"
+                                                                    Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).ListenCommand}"
+                                                                    CommandParameter="{Binding PilotSpoken}" />
+                                                        </Grid>
+                                                        <Grid ColumnDefinitions="38,*,Auto" IsVisible="{Binding HasAtc}">
+                                                            <TextBlock Text="{app:T 'ATC'}" FontSize="11" FontWeight="Bold" Foreground="#8AD8FF" Margin="0,2,0,0" />
+                                                            <StackPanel Grid.Column="1" Spacing="1">
+                                                                <SelectableTextBlock Text="{Binding Atc}" FontFamily="{StaticResource Mono}" FontSize="12.5"
+                                                                                     Foreground="{StaticResource TextMain}" TextWrapping="Wrap" />
+                                                                <TextBlock Text="{Binding AtcSpoken}" FontStyle="Italic" FontSize="11.5" Foreground="{StaticResource TextDim}" TextWrapping="Wrap" />
+                                                            </StackPanel>
+                                                            <Button Grid.Column="2" Classes="small" Content="▶" VerticalAlignment="Top" Margin="6,0,0,0" ToolTip.Tip="{app:T 'Oír'}"
+                                                                    Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).ListenCommand}"
+                                                                    CommandParameter="{Binding AtcSpoken}" />
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding Note}" FontSize="12" Foreground="{StaticResource TextBody}" TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+
+            <DockPanel Classes="page" IsVisible="{Binding IsFlights}" Margin="24">
+                <StackPanel DockPanel.Dock="Top" Spacing="14" Margin="0,0,0,12">
+                    <TextBlock Classes="h1" Text="{app:T 'Mis vuelos'}" />
+                    <Border Classes="card" Padding="14" IsVisible="{Binding HasLastFlight}">
+                        <StackPanel Spacing="8">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="{app:T 'Cerrar vuelo'}" Command="{Binding CloseFlightCommand}"
+                                        ToolTip.Tip="{app:T 'Quita el plan y su ruta del radar para cargar el siguiente vuelo'}" />
+                                <TextBlock Classes="h2" Text="{Binding LastFlightTitle}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <ItemsControl ItemsSource="{Binding LastFlight}" ItemTemplate="{StaticResource DiagItemTemplate}" />
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Classes="h2" Text="{app:T 'Historial'}" />
+                    <TextBlock Text="{app:T 'Todavía no hay vuelos terminados. Un vuelo termina al apagar los motores en el puesto.'}"
+                               Foreground="{StaticResource TextDim}" IsVisible="{Binding NoFlightHistory}" />
+                </StackPanel>
+                <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding FlightHistory}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FlightRow">
+                                <Border Classes="card" Padding="12,8" Margin="0,0,0,6">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="{Binding Route}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Detail}" Foreground="{StaticResource TextDim}" FontSize="12" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right">
+                                            <TextBlock Text="{Binding When}" HorizontalAlignment="Right" />
+                                            <TextBlock Text="{Binding Times}" Foreground="{StaticResource TextDim}" FontSize="12" HorizontalAlignment="Right" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+
+            <!-- Diagnóstico: fuentes, motor, ATC, herramientas y log filtrable -->
+            <DockPanel Classes="page" IsVisible="{Binding IsDiag}" Margin="24">
+                <StackPanel DockPanel.Dock="Top" Spacing="14" Margin="0,0,0,12">
+                    <TextBlock Classes="h1" Text="{app:T 'Diagnóstico'}" />
+                    <Grid ColumnDefinitions="*,16,*,16,*">
+                        <Border Classes="card" Padding="14">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="h2" Text="{app:T 'Fuentes'}" />
+                                <ItemsControl ItemsSource="{Binding SourceRows}" ItemTemplate="{StaticResource DiagItemTemplate}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Classes="card" Padding="14">
+                            <StackPanel Spacing="8">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Classes="small" Content="{app:T 'Reiniciar máx.'}" Command="{Binding ResetMaxFrameTimeCommand}" />
+                                    <TextBlock Classes="h2" Text="{app:T 'Motor'}" VerticalAlignment="Center" />
+                                </DockPanel>
+                                <ItemsControl ItemsSource="{Binding EngineRows}" ItemTemplate="{StaticResource DiagItemTemplate}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="4" Classes="card" Padding="14">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="h2" Text="{app:T 'ATC y seguridad en tierra'}" />
+                                <ItemsControl ItemsSource="{Binding AtcRows}" ItemTemplate="{StaticResource DiagItemTemplate}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <Expander Header="{app:T 'Herramientas de prueba del tráfico (desarrollo)'}" HorizontalAlignment="Stretch" IsVisible="{Binding IsDeveloperBuild}">
+                    <Grid ColumnDefinitions="*,16,*">
+                        <Border Classes="card" Padding="14">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="h2" Text="{app:T 'Estacionados'}" />
+                                <WrapPanel>
+                                    <Button Content="1" Command="{Binding PopulateCommand}" CommandParameter="1" Margin="0,0,6,6" />
+                                    <Button Content="3" Command="{Binding PopulateCommand}" CommandParameter="3" Margin="0,0,6,6" />
+                                    <Button Content="10" Command="{Binding PopulateCommand}" CommandParameter="10" Margin="0,0,6,6" />
+                                    <Button Content="25" Command="{Binding PopulateCommand}" CommandParameter="25" Margin="0,0,6,6" />
+                                    <Button Content="{app:T 'Limpiar todo el tráfico'}" Command="{Binding ClearTrafficCommand}" Margin="10,0,0,6" />
+                                </WrapPanel>
+                                <TextBlock Classes="label" Text="{app:T 'Reemplaza los estacionados por esa cantidad (densidad progresiva 1 → 3 → 10).'}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Classes="card" Padding="14">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="h2" Text="{app:T 'Salidas'}" />
+                                <WrapPanel>
+                                    <TextBlock Text="{app:T 'Pista'}" Foreground="{StaticResource TextBody}" VerticalAlignment="Center" Margin="0,0,8,6" />
+                                    <ComboBox ItemsSource="{Binding RunwayEnds}" SelectedItem="{Binding SelectedRunwayEnd}" MinWidth="80" Margin="0,0,12,6" />
+                                    <NumericUpDown Value="{Binding LaunchCount}" Minimum="1" Maximum="20" Increment="1" FormatString="0" Width="110" Margin="0,0,6,6"
+                                                   ToolTip.Tip="{app:T 'Cuántas salidas'}" />
+                                    <TextBlock Text="{app:T 'cada'}" Foreground="{StaticResource TextBody}" VerticalAlignment="Center" Margin="0,0,6,6" />
+                                    <NumericUpDown Value="{Binding LaunchSpacing}" Minimum="10" Maximum="600" Increment="10" FormatString="0" Width="120" Margin="0,0,6,6" />
+                                    <TextBlock Text="{app:T 's'}" Foreground="{StaticResource TextBody}" VerticalAlignment="Center" Margin="0,0,10,6" />
+                                    <Button Content="{app:T 'Lanzar'}" Command="{Binding LaunchBatchCommand}" Margin="0,0,0,6" />
+                                </WrapPanel>
+                                <TextBlock Classes="label" Text="{app:T 'Toma estacionados al azar. Para uno en particular usa Lanzar en su fila.'}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding ActiveRunwayText}" Foreground="{StaticResource Accent}" TextWrapping="Wrap"
+                                           ToolTip.Tip="{app:T 'Con la cabecera en Automática, las salidas usan la pista en uso por viento'}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    </Expander>
+                    <Border Classes="card" Padding="14">
+                        <StackPanel Spacing="10">
+                            <TextBlock Classes="h2" Text="{app:T 'Herramientas'}" />
+                            <WrapPanel>
+                                <ToggleSwitch IsChecked="{Binding TrafficPaused}" OnContent="{app:T 'Tráfico IA congelado'}" OffContent="{app:T 'Tráfico IA corriendo'}" Margin="0,0,16,6" />
+                                <ToggleSwitch IsChecked="{Binding AirborneVelocities}" OnContent="{app:T 'IA en vuelo: con velocidades (antes)'}" OffContent="{app:T 'IA en vuelo: sin velocidades (prueba de tirones)'}" Margin="0,0,16,6"
+                                              ToolTip.Tip="{app:T 'Compara si los IA en el aire tiritan menos sin escribir VELOCITY BODY Z ni VERTICAL SPEED'}" />
+                                <Button Content="{app:T 'Releer aeropuerto del simulador'}" Command="{Binding ReloadAirportCommand}" Margin="0,0,6,6"
+                                        ToolTip.Tip="{app:T 'Ignora la caché (después de instalar o actualizar un escenario). Borra el tráfico actual.'}" />
+                                <Button Content="{app:T 'Revisar modelos FSLTL/AIG'}" Command="{Binding ReloadCatalogCommand}" Margin="0,0,6,6"
+                                        ToolTip.Tip="{app:T 'Después de instalar o quitar liveries'}" />
+                                <Button Content="{app:T 'Abrir carpeta de datos'}" Command="{Binding OpenDataFolderCommand}" Margin="0,0,6,6" />
+                                <Button Content="{app:T 'Reportar un problema'}" Command="{Binding OpenFeedbackCommand}" Margin="0,0,6,6"
+                                        ToolTip.Tip="{app:T 'Formulario anónimo, sin iniciar sesión. Para un bug, adjunta el enlace a tus logs (Diagnóstico → Abrir carpeta de datos → logs).'}" />
+                            </WrapPanel>
+                            <WrapPanel>
+                                <TextBlock Text="{app:T 'Ruta de rodaje de prueba (hasta la pista elegida en Tráfico):'}"
+                                           Foreground="{StaticResource TextDim}" VerticalAlignment="Center" Margin="0,0,10,6" />
+                                <Button Content="{app:T 'Mostrar'}" Command="{Binding ShowTestTaxiRouteCommand}" Margin="0,0,6,6" />
+                                <Button Content="{app:T 'Quitar'}" Command="{Binding ClearTestTaxiRouteCommand}" Margin="0,0,6,6" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
+                            <CheckBox Content="{app:T 'Seguir el final'}" IsChecked="{Binding LogAutoScroll}" Margin="0,0,8,0" />
+                            <Button Classes="small" Content="{app:T 'Copiar'}" Click="OnCopyLog" ToolTip.Tip="{app:T 'Copia las líneas visibles'}" />
+                            <Button Classes="small" Content="{app:T 'Guardar'}" Command="{Binding SaveLogCommand}" ToolTip.Tip="{app:T 'Guarda el log en LOCALAPPDATA\LUAW\logs'}" />
+                            <Button Classes="small" Content="{app:T 'COM1'}" Command="{Binding SaveComLogCommand}" CommandParameter="1" ToolTip.Tip="{app:T 'Guarda el chat de COM1 como texto en LOCALAPPDATA\LUAW\logs'}" />
+                            <Button Classes="small" Content="{app:T 'COM2'}" Command="{Binding SaveComLogCommand}" CommandParameter="2" ToolTip.Tip="{app:T 'Guarda el chat de COM2 como texto'}" />
+                            <Button Classes="small" Content="{app:T 'COM3'}" Command="{Binding SaveComLogCommand}" CommandParameter="3" ToolTip.Tip="{app:T 'Guarda el chat de COM3 como texto'}" />
+                            <Button Classes="small" Content="{app:T 'Limpiar'}" Command="{Binding ClearLogCommand}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <TextBlock Classes="h2" Text="{app:T 'Log'}" VerticalAlignment="Center" />
+                            <TextBox Text="{Binding LogFilter}" PlaceholderText="{app:T 'Filtrar (un indicativo, error, bloqueo…)'}" Width="340" />
+                        </StackPanel>
+                    </DockPanel>
+                </StackPanel>
+                <Border Classes="card" Padding="12">
+                    <ScrollViewer x:Name="LogScroll">
+                        <ItemsControl ItemsSource="{Binding VisibleLog}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <SelectableTextBlock Text="{Binding}" FontFamily="{StaticResource Mono}" FontSize="12"
+                                                         Foreground="{StaticResource TextBody}" TextWrapping="Wrap" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </DockPanel>
+        </Grid>
+
+        <!-- Barra de estado -->
+        <Border Grid.Row="2" Grid.ColumnSpan="2" Background="{StaticResource BgPanel}" BorderBrush="{StaticResource Line}"
+                BorderThickness="0,1,0,0" Padding="16,5">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding TrafficSummary}" Foreground="{StaticResource TextDim}" FontSize="12" />
+                <TextBlock Text="{Binding TrafficStatus}" Foreground="{StaticResource TextDim}" FontSize="12" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
+        <!--
+        Ventana de carga (ADR-111, pedido de Marco 2026-11-09): al iniciar o rellenar el tráfico, sobre toda la app con el
+        fondo oscurecido. La barra avanza animada, se ve lo que se está haciendo (el avión que se estaciona, la fase) y las
+        fases ya hechas; al terminar, el resumen y OK.
+        -->
+        <Border Grid.RowSpan="3" Grid.ColumnSpan="2" Classes="scrim" Background="#B3000000" ZIndex="100" IsVisible="{Binding LoadingModalOpen}">
+            <Border Classes="card" Width="580" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24,20">
+                <StackPanel Spacing="12">
+                    <TextBlock Classes="h2" Text="{Binding LoadingTitle}" />
+                    <ProgressBar Value="{Binding TrafficProgress}" Minimum="0" Maximum="100" Height="8" MinHeight="8">
+                        <ProgressBar.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Value" Duration="0:0:0.4" />
+                            </Transitions>
+                        </ProgressBar.Transitions>
+                    </ProgressBar>
+                    <ProgressBar IsIndeterminate="True" Height="3" MinHeight="3" IsVisible="{Binding LoadingWorking}" />
+                    <TextBlock Text="{Binding LoadingDetail}" TextWrapping="Wrap" Foreground="{StaticResource TextMain}" MinHeight="38"
+                               IsVisible="{Binding LoadingWorking}" />
+                    <ItemsControl ItemsSource="{Binding LoadingLines}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="sys:String">
+                                <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource TextDim}" Margin="0,1">
+                                    <Run Text="✓ " Foreground="{StaticResource Accent}" /><Run Text="{Binding}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Border IsVisible="{Binding LoadingDone}" Background="#14FFFFFF" CornerRadius="6" Padding="12,10">
+                        <TextBlock Text="{Binding LoadingSummary}" TextWrapping="Wrap" Foreground="{StaticResource TextMain}" />
+                    </Border>
+                    <Button Classes="primary" Content="{app:T 'OK'}" HorizontalAlignment="Right" MinWidth="96" IsDefault="True"
+                            IsVisible="{Binding LoadingDone}" Command="{Binding CloseLoadingModalCommand}" />
+                </StackPanel>
+            </Border>
+        </Border>
+        <!-- Aviso modal (confirmar algo que no se puede deshacer, o algo que hay que saber sí o sí). Esc o el botón secundario lo cierran. -->
+        <Border Grid.RowSpan="3" Grid.ColumnSpan="2" Classes="scrim" Background="#B3000000" ZIndex="110" IsVisible="{Binding HasNotice}">
+            <Border Classes="card" Width="470" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24,20"
+                    BorderBrush="{StaticResource LineStrong}" BoxShadow="0 12 40 0 #80000000">
+                <StackPanel Spacing="12">
+                    <TextBlock Classes="h2" FontSize="17" Text="{Binding Notice.Title, FallbackValue=''}" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Notice.Text, FallbackValue=''}" TextWrapping="Wrap" Foreground="{StaticResource TextBody}" LineHeight="20" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,6,0,0">
+                        <Button Content="{Binding Notice.Secondary, FallbackValue=''}" Command="{Binding NoticeSecondaryCommand}" MinWidth="96"
+                                HorizontalContentAlignment="Center" IsCancel="True" IsVisible="{Binding Notice.HasSecondary, FallbackValue=False}" />
+                        <Button Classes="primary" Classes.danger="{Binding Notice.Danger, FallbackValue=False}" MinWidth="96" HorizontalContentAlignment="Center"
+                                Content="{Binding Notice.Primary, FallbackValue=''}" Command="{Binding NoticePrimaryCommand}" IsDefault="True" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</Window>

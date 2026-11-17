@@ -1,0 +1,43 @@
+{
+  "note": "Centros de Control de Área (ACC) por FIR, de fuentes oficiales (ADR-072). Se usan antes que las frecuencias vistas en VATSIM. Sectores: 'north'/'south' de la línea 'split' (lat, lon), interpolada por longitud.",
+  "sources": [
+    {
+      "title": "AIP-CHILE ENR 2.1-1 a 2.1-8 (27 NOV 2025, AMDT NR 65): Espacio aéreo ATS, FIR, UIR",
+      "url": "https://aipchile.dgac.gob.cl/dasa/aip_chile_con_contenido/ais/2%20ENR%20Parte%202/ENR%202%20Espacio%20Aereo%20ATS/aENR%202.1-1%20al%20ENR%202.1-8%20Espacio%20Aereo%20ATS,%20FIR,%20UIR.pdf",
+      "retrieved": "2026-11-05"
+    }
+  ],
+  "reviewed": true,
+  "firs": [
+    {
+      "fir": "SCFZ",
+      "callsign": "Iquique Radar",
+      "remark": "ACC Iquique. Sector Norte 128.7 / Sector Sur 128.3; límite: 225225S/0725645W, SIDOT, ARPOM, PUKTA, VOR LOA, ARMOS.",
+      "split": [[-22.8736, -90.0], [-22.8736, -72.9458], [-22.8869, -70.8022], [-22.8869, -70.5628], [-22.8853, -70.3775], [-22.5019, -68.8756], [-24.2917, -67.9792]],
+      "northKhz": 128700,
+      "southKhz": 128300
+    },
+    {
+      "fir": "SCEZ",
+      "callsign": "Santiago Radar",
+      "remark": "ACC Santiago. 129.1 al norte de 332308S, 126.3 al sur de 3323S; alternativas 129.7, 119.7, 121.1, 120.4, 123.8, 135.8.",
+      "split": [[-33.3856, -90.0], [-33.3856, -60.0]],
+      "northKhz": 129100,
+      "southKhz": 126300
+    },
+    {
+      "fir": "SCTZ",
+      "callsign": "Puerto Montt Radar",
+      "remark": "ACC Puerto Montt. 120.1 al norte de 4245S, 128.3 al sur; 128.5 sin sector en el AIP (VERIFICAR V-39).",
+      "split": [[-42.75, -90.0], [-42.75, -60.0]],
+      "northKhz": 120100,
+      "southKhz": 128300
+    },
+    {
+      "fir": "SCCZ",
+      "callsign": "Punta Arenas Centro",
+      "remark": "ACC Punta Arenas. 128.1 y 123.9; se usa la primera.",
+      "khz": 128100
+    }
+  ]
+}

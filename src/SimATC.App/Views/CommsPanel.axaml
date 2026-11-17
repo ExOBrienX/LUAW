@@ -1,0 +1,327 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:app="using:SimATC.App"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SimATC.App.ViewModels"
+             xmlns:views="using:SimATC.App.Views"
+             x:Class="SimATC.App.Views.CommsPanel"
+             x:DataType="vm:CommsViewModel"
+             Background="{StaticResource BgPanel}">
+    <!--
+    Panel de comunicaciones (RF-40, RF-30b, RF-30c), en tres tamaños:
+    - acoplado al radar: chat, ficha de la autorización y "Qué decir ahora" en una columna;
+    - página Comunicaciones (IsWide), o cualquier panel de 760 px o más: el chat a la izquierda y la ficha y las
+      sugerencias en una columna aparte;
+    - panel compacto (IsCompact): la autorización en una línea y sin textos de ayuda.
+    El chat va como un grupo de mensajería: el ATC y los demás a la izquierda, el piloto a la derecha.
+    -->
+    <UserControl.Styles>
+        <Style Selector="Border.bubble">
+            <Setter Property="Background" Value="{StaticResource OtherBubble}" />
+            <Setter Property="CornerRadius" Value="2,12,12,12" />
+            <Setter Property="Padding" Value="12,8,12,6" />
+        </Style>
+        <Style Selector="Border.bubble.atc">
+            <Setter Property="Background" Value="{StaticResource AtcBubble}" />
+        </Style>
+        <!-- Lo que el ATC te dice a ti: borde de color y la marca "PARA TI" (lo dicho a los IA queda sin borde). -->
+        <Style Selector="Border.bubble.forme">
+            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+            <Setter Property="BorderThickness" Value="2,1,1,1" />
+        </Style>
+        <Style Selector="Border.forme-tag">
+            <Setter Property="Background" Value="{StaticResource Accent}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.forme-tag > TextBlock">
+            <Setter Property="FontSize" Value="9.5" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource BgDeep}" />
+        </Style>
+        <Style Selector="Border.bubble.pilot">
+            <Setter Property="Background" Value="{StaticResource PilotBubble}" />
+            <Setter Property="CornerRadius" Value="12,2,12,12" />
+        </Style>
+        <Style Selector="Border.avatar">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="CornerRadius" Value="17" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style Selector="Border.avatar > TextBlock">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.who">
+            <Setter Property="Foreground" Value="{StaticResource TextBody}" />
+        </Style>
+        <Style Selector="TextBlock.who.atc">
+            <Setter Property="Foreground" Value="#8AD8FF" />
+        </Style>
+        <Style Selector="TextBlock.msgtext">
+            <Setter Property="FontSize" Value="14.5" />
+            <Setter Property="Foreground" Value="#E3EAF2" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="LineHeight" Value="20" />
+        </Style>
+        <!-- Cada mensaje nuevo entra con un fundido y un leve deslizamiento hacia arriba. -->
+        <Style Selector="Panel.msg">
+            <Style.Animations>
+                <Animation Duration="0:0:0.3" Easing="CubicEaseOut" FillMode="Forward">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="0" />
+                        <Setter Property="Margin" Value="0,10,0,-10" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                        <Setter Property="Margin" Value="0" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <!-- Punto que late mientras el ATC transmite (la clase se quita al terminar: no queda animando). -->
+        <Style Selector="Ellipse.pulse">
+            <Style.Animations>
+                <Animation Duration="0:0:0.7" IterationCount="Infinite" PlaybackDirection="Alternate">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="0.25" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <Style Selector="Button.radio">
+            <Setter Property="Background" Value="{StaticResource BgRaised}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Opacity" Value="0.7" />
+        </Style>
+        <Style Selector="Button.radio.on">
+            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Border.card-step">
+            <Setter Property="Background" Value="{StaticResource BgRaised}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentLine}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12,10" />
+        </Style>
+        <!-- Qué se ve en cada tamaño. -->
+        <Style Selector=":is(Control).compactonly">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="views|CommsPanel.compact :is(Control).compactonly">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="views|CommsPanel.compact :is(Control).full">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="views|CommsPanel.compact TextBlock.station">
+            <Setter Property="FontSize" Value="18" />
+        </Style>
+        <!-- Compacto (ADR-136): sin el menú de pedidos ni textos de ayuda, sugerencias acotadas; el chat queda a la vista. -->
+        <Style Selector="views|CommsPanel.compact ScrollViewer.stepscroll">
+            <Setter Property="MaxHeight" Value="250" />
+        </Style>
+        <Style Selector="views|CommsPanel.compact Panel.requests">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="views|CommsPanel.compact Panel.sendvia">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="views|CommsPanel.compact ScrollViewer.suggestions">
+            <Setter Property="MaxHeight" Value="92" />
+        </Style>
+        <Style Selector="views|CommsPanel.compact Panel.spoken">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector=":is(Control).wideonly">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="views|CommsPanel.wide :is(Control).wideonly">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="views|CommsPanel.wide :is(Control).narrowonly">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <!-- En una columna, la lista de sugerencias no crece más que esto (no tapa el chat); en dos columnas, sin límite. -->
+        <Style Selector="views|CommsPanel:not(.wide) ScrollViewer.suggestions">
+            <Setter Property="MaxHeight" Value="112" />
+        </Style>
+        <!-- Junto al radar, sin la pronunciación debajo de cada sugerencia (va en el globo de ayuda): ocupa la mitad. -->
+        <Style Selector="views|CommsPanel:not(.wide) Panel.spoken">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <!-- La autorización: completa en la columna ancha; en una línea con "Detalles" junto al radar; solo la línea en el compacto. -->
+        <Style Selector="views|ClearanceView.detailed :is(Control).summary">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="views|ClearanceView.brief :is(Control).details">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="views|ClearanceView.brief.expanded :is(Control).details">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="views|CommsPanel.compact views|ClearanceView :is(Control).details">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="views|CommsPanel.compact ToggleButton.expand">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid ColumnDefinitions="*,Auto">
+        <DockPanel>
+            <!-- Estación y frecuencia -->
+            <Border DockPanel.Dock="Top" Classes="compactonly" Padding="16,10,16,4">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="station" Text="{Binding StationName}" FontWeight="SemiBold" Foreground="{StaticResource TextMain}" TextWrapping="Wrap" />
+                    <TextBlock Classes="mono station" Text="{Binding Frequency}" Foreground="{StaticResource Freq}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+            <Border DockPanel.Dock="Top" Padding="12,8,12,4" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" IsVisible="{Binding HasRadios}">
+                <StackPanel>
+                    <!-- Las radios del avión: botón para ver u ocultar el chat de cada una (el de transmitir siempre se ve). -->
+                    <ItemsControl ItemsSource="{Binding AvailableChannels}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ChannelViewModel">
+                                <Button Classes="radio" Classes.on="{Binding IsShown}" Margin="0,0,6,4" Padding="8,3"
+                                        Command="{Binding $parent[UserControl].((vm:CommsViewModel)DataContext).ToggleChannelCommand}" CommandParameter="{Binding}"
+                                        ToolTip.Tip="{app:T 'Ver u ocultar el chat de esta radio'}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Frequency}" Classes="mono" FontSize="12" Foreground="{StaticResource Freq}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Station}" FontSize="11.5" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding State}" FontSize="10" FontWeight="Bold" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Ok}" IsVisible="{Binding Transmitting}" />
+                                        <TextBlock Text="{Binding State}" FontSize="10" FontWeight="Bold" VerticalAlignment="Center"
+                                                   Foreground="#8AD8FF" IsVisible="{Binding !Transmitting}" />
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- Tu autorización (en la página ancha va en la columna de la derecha) -->
+            <Panel DockPanel.Dock="Top" Classes="narrowonly">
+                <Panel IsVisible="{Binding !$parent[views:CommsPanel].StepOnRadar}">
+                    <Border Padding="16,8" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" IsVisible="{Binding HasClearance}">
+                        <views:ClearanceView Classes="brief" Classes.expanded="{Binding ClearanceExpanded}" />
+                    </Border>
+                </Panel>
+            </Panel>
+
+            <!-- Qué decir ahora (en la página ancha va a la derecha) y el campo de texto -->
+            <Border DockPanel.Dock="Bottom" Padding="16,12" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
+                <StackPanel Spacing="8">
+                    <ScrollViewer Classes="stepscroll" HorizontalScrollBarVisibility="Disabled">
+                        <Panel Classes="narrowonly">
+                            <views:StepView IsVisible="{Binding !$parent[views:CommsPanel].StepOnRadar}" />
+                        </Panel>
+                    </ScrollViewer>
+                    <TextBlock Classes="label full" TextWrapping="Wrap">
+                        <Run Text="{app:T 'Tu mensaje'}" /><Run Text="{app:T '  · Enter envía · Esc borra'}" Foreground="{StaticResource TextFaint}" />
+                    </TextBlock>
+                    <!-- El texto fantasma va detrás del campo, con la misma letra y margen: se ve lo que falta de la sugerencia. -->
+                    <Border Background="{StaticResource BgDeep}" BorderBrush="{StaticResource AccentLine}" BorderThickness="1" CornerRadius="8">
+                        <Grid>
+                            <!-- Los dos con el mismo salto de línea: un mensaje largo baja de renglón en vez de cortarse. -->
+                            <TextBlock Text="{Binding Ghost}" Foreground="{StaticResource TextFaint}" FontFamily="{StaticResource Mono}" FontSize="13"
+                                       Margin="13,11,13,11" TextWrapping="Wrap" IsHitTestVisible="False" />
+                            <TextBox x:Name="Input" Text="{Binding InputText}" FontFamily="{StaticResource Mono}" FontSize="13"
+                                     Background="Transparent" BorderThickness="0" Padding="12,10" AcceptsReturn="False" TextWrapping="Wrap"
+                                     MaxHeight="140" Foreground="{StaticResource TextMain}" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- El micrófono: abierto (punto rojo que late), transcribiendo, o un aviso corto -->
+            <Border DockPanel.Dock="Bottom" Padding="16,6" IsVisible="{Binding HasMicState}">
+                <DockPanel>
+                    <Ellipse DockPanel.Dock="Left" Width="9" Height="9" Fill="#FF5C5C" Classes.pulse="{Binding MicListening}" VerticalAlignment="Top"
+                             Margin="0,4,8,0" IsVisible="{Binding MicListening}" />
+                    <TextBlock Text="{Binding MicState}" FontSize="12.5" FontWeight="SemiBold" Foreground="#FFB4B4" TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+
+            <!-- El ATC está por hablar -->
+            <Border DockPanel.Dock="Bottom" Padding="16,6" IsVisible="{Binding IsTransmitting}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Ellipse Width="8" Height="8" Fill="#8AD8FF" Classes.pulse="{Binding IsTransmitting}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Transmitting}" FontSize="12" FontStyle="Italic" Foreground="#8AD8FF" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- Los chats de las radios (RF-34, RF-37): en dos columnas, uno al lado del otro; en una columna, en pestañas. -->
+            <Panel>
+                <ItemsControl Classes="wideonly" ItemsSource="{Binding ShownChannels}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Rows="1" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChannelViewModel">
+                            <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+                                <views:ChannelView />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <DockPanel Classes="narrowonly">
+                    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding ShownChannels}" IsVisible="{Binding HasManyShown}" Margin="12,6,12,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="4" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ChannelViewModel">
+                                <Button Classes="radio" Classes.on="{Binding IsSelected}" Padding="10,3"
+                                        Command="{Binding $parent[UserControl].((vm:CommsViewModel)DataContext).SelectChannelCommand}" CommandParameter="{Binding}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <Border Background="{StaticResource Accent}" CornerRadius="8" Padding="5,0" IsVisible="{Binding HasUnread}">
+                                            <TextBlock Text="{Binding Unread}" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource BgDeep}" />
+                                        </Border>
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <views:ChannelView DataContext="{Binding SelectedChannel}" />
+                </DockPanel>
+            </Panel>
+        </DockPanel>
+
+        <!-- Página Comunicaciones: columna aparte con la autorización y qué decir -->
+        <Border Grid.Column="1" Classes="wideonly" Width="380" BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
+            <ScrollViewer Padding="16">
+                <StackPanel Spacing="16">
+                    <Border Classes="card-step" IsVisible="{Binding HasClearance}">
+                        <views:ClearanceView Classes="detailed" />
+                    </Border>
+                    <views:StepView />
+                    <TextBlock IsVisible="{Binding !HasStep}" Foreground="{StaticResource TextFaint}" TextWrapping="Wrap"
+                               Text="{app:T 'Cuando toque hablar, aquí aparece qué decir y las frases sugeridas.'}" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

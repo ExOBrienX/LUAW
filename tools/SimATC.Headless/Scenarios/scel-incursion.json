@@ -1,0 +1,8 @@
+{
+  "airport": "SCEL", "seed": 5, "hours": 1, "runways": ["35L"],
+  "departures": [
+    { "stand": "Gate 16", "runway": "35L", "atS": 0 },
+    { "stand": "Gate 20", "runway": "35L", "atS": 60 }
+  ],
+  "incursion": { "runway": "35L", "atS": 0, "durationS": 90, "onTakeoffRoll": true }
+}
