@@ -232,8 +232,8 @@ push-to-talk are not supported yet, and AI arrival sequencing does not yet coord
 
 Bug reports, ideas and comments are welcome in the **[anonymous feedback form](https://forms.gle/voKhCbMmKeNZTsLP9)**
 (no sign-in), also from the app (Settings → About LUAW → Send feedback), or in
-[Issues](https://github.com/ExOBrienX/LUAW/issues). For a bug, please attach a link to the latest files from
-`%LOCALAPPDATA%\LUAW\logs`.
+[Issues](https://github.com/ExOBrienX/LUAW/issues). For a bug, press **Diagnostics → Export logs (zip)**, upload the zip
+it saves on your Desktop (Google Drive, Dropbox or similar) and paste the link in the form.
 
 ## Support
 

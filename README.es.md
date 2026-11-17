@@ -272,8 +272,8 @@ puede usar un botón del joystick para hablar, y la secuencia de llegadas de los
 ## Comentarios y bugs
 
 Bugs, ideas y comentarios en el **[formulario anónimo](https://forms.gle/voKhCbMmKeNZTsLP9)** (sin iniciar sesión),
-también desde la app (Configuración → Acerca de LUAW → Enviar comentarios). Para un bug, adjunta el enlace a los
-últimos archivos de `%LOCALAPPDATA%\LUAW\logs`.
+también desde la app (Configuración → Acerca de LUAW → Enviar comentarios). Para un bug, pulsa **Diagnóstico → Exportar
+logs (zip)**, sube el zip que queda en tu escritorio (Google Drive, Dropbox o similar) y pega el enlace en el formulario.
 
 ## Apoyar el proyecto
 

@@ -63,6 +63,7 @@ var airport = AirportCache.Deserialize(File.ReadAllText(cachePath))!.Airport;
 var graph = TaxiGraph.Build(airport);
 var rng = new Random(scenario.Seed);
 var runwayPlanText = "";
+IReadOnlyList<int> standbyRunways = [];
 // "auto" (ADR-091): pista en uso por el viento del escenario y reparto automático de llegadas y salidas, como en la app.
 if (scenario.Runways is ["auto"])
 {
@@ -75,6 +76,7 @@ if (scenario.Runways is ["auto"])
         arrivalsPerHour: arrPh, departuresPerHour: depPh, planDeparture: scenario.PlanDeparture, planArrival: scenario.PlanArrival);
     Console.WriteLine($"Pista en uso {selector.Current.Label}; reparto: {plan.Reason}.");
     runwayPlanText = $"llegadas {string.Join("/", plan.Arrival)}, salidas {string.Join("/", plan.Departure)}";
+    standbyRunways = plan.Standby;
     // Con mucha demanda, como en la app: la paralela de la de llegadas también (si no es de salidas).
     var busyParallel = false;
     var landingSet = SimATC.Core.Flight.ParallelRunways.LandingSet(airport, plan.Arrival, SimATC.Core.Flight.ParallelRunways.OnAtArrivals, ref busyParallel);
@@ -101,6 +103,8 @@ if (!args.Contains("--no-flows") && scenario.Runways.Length > 0)
                 ends.Add((r, false));
         }
     }
+    // La pista de reserva sin usar sirve de calle (ADR-160), como en la app.
+    graph.SetStandbyRunways(standbyRunways);
     graph.SetFlows(ends);
     // Y las calles de salida de las pistas de llegada, alejándose de la pista (ADR-092), como en la app.
     var arrEnds = new List<(int, bool)>();

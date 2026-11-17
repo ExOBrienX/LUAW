@@ -354,7 +354,7 @@ public sealed class TaxiGraph
                     var (_, cn) = RunwayFrame(runway, _positions[n]);
                     foreach (var e in _adjacency[n])
                     {
-                        if (_runwayAt[e.To] >= 0 || e.Type == TaxiPathType.Runway || !seen.Add(e.To))
+                        if (Rwy(e.To) >= 0 || AlongRunway(n, e) || !seen.Add(e.To))
                             continue;
                         var (_, ct) = RunwayFrame(runway, _positions[e.To]);
                         if (Math.Abs(ct) <= Math.Abs(cn) || Math.Abs(ct) > ExitFlowM)
@@ -413,12 +413,16 @@ public sealed class TaxiGraph
         var toStart = GeoMath.NormalizeDeg(takeoffHeading + 180);
         var halfLength = r.LengthM / 2 + 500;
         // Tramos paralelos con su distancia lateral (con signo: el lado).
-        var parallel = new List<(int A, int B, double Cross, double Length)>();
+        var parallel = new List<(int A, int B, double Cross, double Length, bool Standby)>();
         for (var a = 0; a < _airport.TaxiPoints.Count; a++)
         {
             foreach (var e in _adjacency[a])
             {
-                if (e.To <= a || e.Type != TaxiPathType.Taxi || e.LengthM < 5 || _runwayAt[a] >= 0 || _runwayAt[e.To] >= 0)
+                // Calle de rodaje: tipo Taxi, o Path con nombre de calle (ADR-160: en Gatwick las calles J, Z, W… vienen como
+                // Path y no se encontraba ninguna paralela; salidas y llegadas se cruzaban de frente en la misma calle).
+                var taxiway = e.Type == TaxiPathType.Taxi || e.Type == TaxiPathType.Path && TaxiwayName(e.NameIndex).Length > 0
+                              || e.Type == TaxiPathType.Runway && Standby(a) && Standby(e.To);
+                if (e.To <= a || !taxiway || e.LengthM < 5 || Rwy(a) >= 0 || Rwy(e.To) >= 0)
                     continue;
                 var pa = _positions[a];
                 var pb = _positions[e.To];
@@ -430,26 +434,31 @@ public sealed class TaxiGraph
                 var (along, cross) = RunwayFrame(runwayIndex, mid);
                 if (Math.Abs(along) > halfLength || Math.Abs(cross) < FlowMinLateralM || Math.Abs(cross) > FlowMaxLateralM)
                     continue;
-                parallel.Add((a, e.To, cross, e.LengthM));
+                parallel.Add((a, e.To, cross, e.LengthM, e.Type == TaxiPathType.Runway));
             }
         }
         // Calles (por distancia lateral, en franjas de 30 m) con al menos 300 m de largo: la más cercana y la siguiente.
         var flow = new Dictionary<long, double>();
         foreach (var side in new[] { 1, -1 })
         {
-            var lanes = parallel.Where(x => Math.Sign(x.Cross) == side)
+            // Una pista de reserva usada como calle (ADR-160) es la de vuelta (sentido del despegue), como en Gatwick; la
+            // calle más cercana que no es pista va hacia la cabecera.
+            var hasStandby = parallel.Any(x => Math.Sign(x.Cross) == side && x.Standby);
+            var lanes = parallel.Where(x => Math.Sign(x.Cross) == side && !x.Standby)
                 .GroupBy(x => (int)Math.Round(Math.Abs(x.Cross) / 30))
                 .Where(g => g.Sum(x => x.Length) >= 300)
                 .OrderBy(g => g.Key)
                 .ToList();
-            if (lanes.Count == 0)
+            if (lanes.Count == 0 && !hasStandby)
                 continue;
-            var inner = lanes[0].Key;
-            var outer = lanes.FirstOrDefault(g => g.Key - inner >= 2)?.Key;
+            int? inner = lanes.Count > 0 ? lanes[0].Key : null;
+            var outer = hasStandby || inner is null ? null : lanes.FirstOrDefault(g => g.Key - inner.Value >= 2)?.Key;
             foreach (var x in parallel.Where(x => Math.Sign(x.Cross) == side))
             {
                 var band = (int)Math.Round(Math.Abs(x.Cross) / 30);
-                double? want = Math.Abs(band - inner) <= 1 ? toStart : OuterLaneFlow && outer is { } o && Math.Abs(band - o) <= 1 ? takeoffHeading : null;
+                double? want = x.Standby ? takeoffHeading
+                    : inner is { } i && Math.Abs(band - i) <= 1 ? toStart
+                    : OuterLaneFlow && outer is { } o && Math.Abs(band - o) <= 1 ? takeoffHeading : null;
                 if (want is { } w)
                     flow[EdgeKey(x.A, x.B)] = w;
             }
@@ -502,7 +511,40 @@ public sealed class TaxiGraph
     public LocalPoint Position(int node) => _positions[node];
 
     /// <summary>Índice de la pista sobre la que está el nodo, o -1.</summary>
-    public int RunwayAt(int node) => _runwayAt[node];
+    /// <summary>La pista sobre la que está el nodo, o -1 (también -1 en una pista de reserva usada como calle, ADR-160).</summary>
+    public int RunwayAt(int node) => Rwy(node);
+
+    private bool[] _standbyRunway = [];
+
+    /// <summary>
+    /// Pistas de reserva que, mientras no se usan, sirven de calle de rodaje (ADR-160; Gatwick: la 08L/26R es la calle
+    /// principal de la 08R/26L). Sus nodos dejan de ser "de pista" (sin cruces ni esperas) y se puede rodar a lo largo.
+    /// Vacía, todas las pistas son pistas.
+    /// </summary>
+    public void SetStandbyRunways(IReadOnlyCollection<int> runways)
+    {
+        var standby = new bool[_airport.Runways.Count];
+        foreach (var r in runways)
+        {
+            if (r >= 0 && r < standby.Length)
+                standby[r] = true;
+        }
+        _standbyRunway = standby;
+    }
+
+    /// <summary>¿El nodo está sobre una pista de reserva usada como calle?</summary>
+    private bool Standby(int node)
+    {
+        var r = _runwayAt[node];
+        var standby = _standbyRunway;
+        return r >= 0 && r < standby.Length && standby[r];
+    }
+
+    /// <summary>Pista del nodo para rodar (-1 en una pista de reserva usada como calle).</summary>
+    private int Rwy(int node) => Standby(node) ? -1 : _runwayAt[node];
+
+    /// <summary>¿El tramo va a lo largo de una pista (que no sea de reserva usada como calle)?</summary>
+    private bool AlongRunway(int from, Edge e) => e.Type == TaxiPathType.Runway && !(Standby(from) && Standby(e.To));
 
     /// <summary>Vecinos de un nodo (para dibujar o recorrer).</summary>
     public IEnumerable<(int To, TaxiPathType Type, string Name)> Neighbors(int node)
@@ -803,7 +845,7 @@ public sealed class TaxiGraph
     /// </summary>
     private TaxiRoute? FindRoute(int from, int to, Func<int, int, bool>? blocked, int avoidNode, bool crossings, bool throughStands)
     {
-        if (_runwayAt[from] >= 0 || _runwayAt[to] >= 0)
+        if (Rwy(from) >= 0 || Rwy(to) >= 0)
             return null;
 
         var g = new double[NodeCount];
@@ -828,12 +870,12 @@ public sealed class TaxiGraph
             {
                 if (closed[e.To] || e.To == avoidNode || blocked?.Invoke(current, e.To) == true)
                     continue;
-                if (_runwayAt[e.To] >= 0 && (!crossings || e.Type == TaxiPathType.Runway))
+                if (Rwy(e.To) >= 0 && (!crossings || AlongRunway(current, e)))
                     continue;
                 if (!throughStands && e.To != to && IsParking(e.To))
                     continue;
                 var tentative = g[current] + EdgeCost(current, e, cameFrom[current], cameBy[current], from, to);
-                if (_runwayAt[e.To] >= 0 && _runwayAt[current] < 0)
+                if (Rwy(e.To) >= 0 && Rwy(current) < 0)
                     tentative += CrossingPenaltyM;
                 if (tentative < g[e.To])
                 {

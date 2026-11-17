@@ -363,10 +363,18 @@ public sealed partial class MainWindowViewModel
     {
         IReadOnlyList<string> idents = SelectedRunwayEnd != AutoRunway && SelectedRunwayEnd is { } manual ? [manual] : DepartureEnds;
         var arrivals = ArrivalLandingEnds();
-        var key = string.Join("/", idents) + "|" + string.Join("/", arrivals);
+        // Pistas de reserva que sirven de calle (ADR-160), nunca una que esté en uso (p. ej. elegida a mano).
+        var standby = new List<int>();
+        foreach (var r in _runwayPlan?.Standby ?? [])
+        {
+            if (!_runwayEnds.Any(x => x.Item2 == r && (idents.Contains(x.Item1) || arrivals.Contains(x.Item1))))
+                standby.Add(r);
+        }
+        var key = string.Join("/", idents) + "|" + string.Join("/", arrivals) + "|" + string.Join("/", standby);
         if (_graph is not { } graph || key == _flowFor)
             return;
         _flowFor = key;
+        graph.SetStandbyRunways(standby);
         var ends = new List<(int, bool)>();
         foreach (var (ident, i, p) in _runwayEnds)
         {

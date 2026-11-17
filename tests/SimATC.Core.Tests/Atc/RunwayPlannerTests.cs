@@ -81,6 +81,28 @@ public class RunwayPlannerTests
         Assert.All(plan.Arrival, a => Assert.Equal("13", a));
     }
 
+    /// <summary>
+    /// Reporte de un usuario (2026-11-17, Gatwick): de dos pistas que no se pueden usar a la vez (08R/26L y 08L/26R, muy
+    /// juntas), el motor elegía la 26R por quedar más cerca de las terminales, pero es la de reserva: más corta y sin ILS. Se
+    /// prefiere la principal (con ILS o localizador si la otra no lo tiene, o claramente más larga), con cualquier viento.
+    /// </summary>
+    [Theory]
+    [InlineData(258, 8, "26L")]
+    [InlineData(78, 8, "08R")]
+    [InlineData(258, 0, "26L")]
+    public void Of_two_runways_that_cannot_be_used_together_the_main_one_is_used(double windFrom, double windKt, string main)
+    {
+        var egkk = SimAirports.Load("EGKK.json");
+        var graph = TaxiGraph.Build(egkk);
+        var current = main.StartsWith("26", StringComparison.Ordinal) ? new[] { "26L", "26R" } : ["08R", "08L"];
+        foreach (var demand in new[] { 8.0, 20, 40 })
+        {
+            var plan = RunwayPlanner.Plan(egkk, graph, current, windFrom, windKt, arrivalsPerHour: demand, departuresPerHour: demand);
+            Assert.Equal([main], plan.Arrival);
+            Assert.Equal([main], plan.Departure);
+        }
+    }
+
     private static readonly Lazy<AirportData> ScelData = new(() =>
         SimAirports.Load("SCEL.json"));
 

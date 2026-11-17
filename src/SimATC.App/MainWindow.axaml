@@ -1250,6 +1250,8 @@
                                 <Button Content="{app:T 'Revisar modelos FSLTL/AIG'}" Command="{Binding ReloadCatalogCommand}" Margin="0,0,6,6"
                                         ToolTip.Tip="{app:T 'Después de instalar o quitar liveries'}" />
                                 <Button Content="{app:T 'Abrir carpeta de datos'}" Command="{Binding OpenDataFolderCommand}" Margin="0,0,6,6" />
+                                <Button Content="{app:T 'Exportar logs (zip)'}" Command="{Binding ExportLogsCommand}" Margin="0,0,6,6"
+                                        ToolTip.Tip="{app:T 'Arma un zip con los logs recientes en el escritorio, para adjuntarlo a un reporte (súbelo a Google Drive o similar y pega el enlace en el formulario).'}" />
                                 <Button Content="{app:T 'Reportar un problema'}" Command="{Binding OpenFeedbackCommand}" Margin="0,0,6,6"
                                         ToolTip.Tip="{app:T 'Formulario anónimo, sin iniciar sesión. Para un bug, adjunta el enlace a tus logs (Diagnóstico → Abrir carpeta de datos → logs).'}" />
                             </WrapPanel>

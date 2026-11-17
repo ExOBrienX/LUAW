@@ -1524,5 +1524,9 @@
 "El zip de Piper no trajo piper.exe donde se esperaba.": "The Piper zip did not contain piper.exe where expected.",
 "{0}: llegaron {1} bytes y se esperaban {2}.": "{0}: received {1} bytes, expected {2}.",
 "{0}: el archivo no coincide con el oficial (SHA-256).": "{0}: the file does not match the official one (SHA-256).",
-"{0}: el archivo no coincide con el del índice oficial (MD5).": "{0}: the file does not match the official index (MD5)."
+"{0}: el archivo no coincide con el del índice oficial (MD5).": "{0}: the file does not match the official index (MD5).",
+"Exportar logs (zip)": "Export logs (zip)",
+"Arma un zip con los logs recientes en el escritorio, para adjuntarlo a un reporte (súbelo a Google Drive o similar y pega el enlace en el formulario).": "Saves a zip with your recent logs on the Desktop to attach to a report (upload it to Google Drive or similar and paste the link in the form).",
+"Logs exportados a {0}.": "Logs exported to {0}.",
+"No se pudieron exportar los logs ({0}).": "Could not export the logs ({0})."
 }

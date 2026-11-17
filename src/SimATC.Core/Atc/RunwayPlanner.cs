@@ -11,6 +11,12 @@ public sealed record RunwayPlan(IReadOnlyList<string> Arrival, IReadOnlyList<str
 {
     /// <summary>¿Llegadas y salidas en pistas distintas?</summary>
     public bool Segregated => !Arrival.Intersect(Departure).Any();
+
+    /// <summary>
+    /// Pistas de reserva sin usar (índices del aeropuerto) de un par que no se usa a la vez con una en uso: sirven de calle
+    /// de rodaje (ADR-160, Gatwick 08L/26R).
+    /// </summary>
+    public IReadOnlyList<int> Standby { get; init; } = [];
 }
 
 /// <summary>
@@ -109,6 +115,28 @@ public static class RunwayPlanner
         list.Sort((a, b) => a.Off.CompareTo(b.Off));
         return [.. list.Select(x => x.Ident)];
     }
+
+    /// <summary>¿Esa cabecera tiene una aproximación con localizador (ILS, LOC, LDA, SDF)? La pista principal la suele tener.</summary>
+    private static bool HasLocalizer(AirportData airport, string end)
+    {
+        foreach (var a in airport.Approaches)
+        {
+            if (a.Type is ApproachType.Ils or ApproachType.Localizer or ApproachType.Lda or ApproachType.Sdf
+                && string.Equals(SimATC.Core.Plan.ProcedureMatch.ApproachRunway(a), end, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Costo de usar una pista de reserva (m de rodaje equivalentes, ADR-160): si otra pista que no se puede usar a la vez es
+    /// la principal (tiene localizador y esta no, o es un 20 % más larga con el mismo equipamiento), se usa esa aunque el rodaje
+    /// sea algo más largo (Gatwick: 26L y no 26R, la de reserva, más cerca de las terminales).
+    /// </summary>
+    public const double SecondaryRunwayPenaltyM = 3000;
+
+    /// <summary>Una pista es un 20 % más larga que otra para contar como la principal del par.</summary>
+    public const double MainRunwayLengthRatio = 1.2;
 
     private static bool HasApproach(AirportData airport, string end)
     {
@@ -241,6 +269,22 @@ public static class RunwayPlanner
                 close[i, j] = close[j, i] = near && dependent;
             }
         }
+        // De un par que no se puede usar a la vez, ¿esta es la de reserva? (ADR-160)
+        var secondary = new bool[n];
+        var localizer = new bool[n];
+        for (var k = 0; k < n; k++)
+            localizer[k] = HasLocalizer(airport, cands[k].End.Ident);
+        for (var k = 0; k < n; k++)
+        {
+            for (var j = 0; j < n && !secondary[k]; j++)
+            {
+                if (j == k || !cross[k, j] || !Parallel(airport, cands[k].Runway, cands[j].Runway))
+                    continue;
+                var lenK = airport.Runways[cands[k].Runway].LengthM;
+                var lenJ = airport.Runways[cands[j].Runway].LengthM;
+                secondary[k] = localizer[j] && !localizer[k] || localizer[j] == localizer[k] && lenJ >= lenK * MainRunwayLengthRatio;
+            }
+        }
         // Según el rol: trayectorias que se acercan (aproximación, motor y al aire, salida) aunque el pavimento no se cruce.
         var conflict = new bool[n, n, 4, 4];
         for (var i = 0; i < n; i++)
@@ -331,6 +375,12 @@ public static class RunwayPlanner
                         cost += InboardArrivalPenaltyM;
                 }
             }
+            // La de reserva de un par de paralelas que no se usan a la vez, solo si la principal no sirve (ADR-160).
+            for (var k = 0; k < n; k++)
+            {
+                if (roles[k] != 0 && secondary[k])
+                    cost += SecondaryRunwayPenaltyM;
+            }
             // Desempate: preferir la pista que eligió el viento para llegar.
             for (var k = 0; k < n; k++)
             {
@@ -354,7 +404,18 @@ public static class RunwayPlanner
         }
         arrivals.Sort(StringComparer.Ordinal);
         departures.Sort(StringComparer.Ordinal);
-        var plan = new RunwayPlan(arrivals, departures, "");
+        var standby = new List<int>();
+        for (var k = 0; k < n; k++)
+        {
+            if (best[k] != 0 || !secondary[k])
+                continue;
+            for (var j = 0; j < n; j++)
+            {
+                if (best[j] != 0 && cross[k, j] && !standby.Contains(cands[k].Runway))
+                    standby.Add(cands[k].Runway);
+            }
+        }
+        var plan = new RunwayPlan(arrivals, departures, "") { Standby = standby };
         var planNote = planDeparture is null && planArrival is null ? ""
             : Tr.F("; plan: {0}{1}{2}", (planDeparture is null ? "" : Tr.F("salida {0}", planDeparture)), (planDeparture is not null && planArrival is not null ? ", " : ""), (planArrival is null ? "" : Tr.F("llegada {0}", planArrival)));
         var crossing = new List<string>();
@@ -612,6 +673,13 @@ public static class RunwayPlanner
         var cb = graph.Projection.ToLocal(airport.Runways[b].Center);
         var bearing = Math.Atan2(cb.EastM - ca.EastM, cb.NorthM - ca.NorthM) * GeoMath.RadToDeg;
         return LocalPoint.Distance(ca, cb) * Math.Abs(Math.Sin(GeoMath.AngleDiffDeg(ra.HeadingTrueDeg, bearing) * GeoMath.DegToRad));
+    }
+
+    /// <summary>¿Las dos pistas son paralelas (o casi, 10°)?</summary>
+    private static bool Parallel(AirportData airport, int a, int b)
+    {
+        var diff = Math.Abs(GeoMath.AngleDiffDeg(airport.Runways[a].HeadingTrueDeg, airport.Runways[b].HeadingTrueDeg));
+        return diff <= 10 || diff >= 170;
     }
 
     private static bool CloseParallels(AirportData airport, TaxiGraph graph, int a, int b)

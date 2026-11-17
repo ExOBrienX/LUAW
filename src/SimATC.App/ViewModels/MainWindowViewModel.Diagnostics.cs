@@ -233,6 +233,47 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>Cuántos archivos de log (los más nuevos) van en el zip para reportar un problema.</summary>
+    public const int ExportLogFiles = 12;
+
+    /// <summary>
+    /// Para reportar un problema (ADR-160: un usuario no supo subir sus logs): arma un zip en el escritorio con los logs más
+    /// recientes y el de esta sesión, y lo muestra en el Explorador. No lleva la configuración (tiene el usuario de SimBrief).
+    /// </summary>
+    [RelayCommand]
+    private void ExportLogs()
+    {
+        try
+        {
+            var dir = Path.Combine(AppPaths.Root, "logs");
+            Directory.CreateDirectory(dir);
+            var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            var zip = Path.Combine(desktop, $"LUAW-logs-{DateTime.Now:yyyyMMdd-HHmm}.zip");
+            if (File.Exists(zip))
+                File.Delete(zip);
+            using (var archive = System.IO.Compression.ZipFile.Open(zip, System.IO.Compression.ZipArchiveMode.Create))
+            {
+                var files = new DirectoryInfo(dir).GetFiles("*.txt").OrderByDescending(f => f.LastWriteTimeUtc).Take(ExportLogFiles);
+                foreach (var f in files)
+                {
+                    // El log de la sesión actual sigue abierto para escribir: se lee compartido.
+                    using var input = new FileStream(f.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    using var entry = archive.CreateEntry(f.Name).Open();
+                    input.CopyTo(entry);
+                }
+                using var current = new StreamWriter(archive.CreateEntry($"current-{DateTime.Now:yyyyMMdd-HHmmss}.txt").Open());
+                foreach (var line in _logLines)
+                    current.WriteLine(line);
+            }
+            TrafficStatus = Tr.F("Logs exportados a {0}.", zip);
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{zip}\"") { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            TrafficStatus = Tr.F("No se pudieron exportar los logs ({0}).", ex.Message);
+        }
+    }
+
     [RelayCommand]
     private void OpenDataFolder() => OpenFolder(AppPaths.Root);
 

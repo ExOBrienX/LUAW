@@ -78,8 +78,8 @@ FEEDBACK
 --------
 Bugs, ideas and comments (anonymous form, no sign-in): https://forms.gle/voKhCbMmKeNZTsLP9
 Also from the app: Settings -> About LUAW -> Send feedback.
-For a bug, upload the latest files from %LOCALAPPDATA%\LUAW\logs (Google Drive or
-similar) and paste the link in the form.
+For a bug, press Diagnostics -> Export logs (zip): it saves a zip with your logs on the
+Desktop. Upload it to Google Drive, Dropbox or similar and paste the link in the form.
 Updates are published on flightsim.to (search "LUAW").
 Source code (GPL-3.0): https://github.com/ExOBrienX/LUAW
 
