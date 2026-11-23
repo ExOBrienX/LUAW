@@ -495,7 +495,7 @@ public sealed class TrafficDirector
 
         await LoadPendingAirportsAsync(ct).ConfigureAwait(false);
         await FillWindowAsync(ctx, ct).ConfigureAwait(false);
-        Status = $"{_active.Count} vuelos activos ({_window} de paso), {routes.LegCount} rutas en la zona";
+        Status = Tr.F("{0} vuelos activos ({1} de paso), {2} rutas en la zona", _active.Count, _window, routes.LegCount);
     }
 
     /// <summary>Carga las rutas de la zona (si no están) sin decidir nada.</summary>
@@ -919,6 +919,7 @@ public sealed class TrafficDirector
     private int PickStand(DirectorContext ctx, AirportData airport, AircraftModel model, string airline)
     {
         var halfSpan = _matcher.WingspanFor(model) / 2;
+        var cargo = ModelMatcher.IsCargo(model);
         // Primero puertas y plataformas de aerolínea; si no queda ninguna, un puesto remoto de respaldo con más holgura
         // (ADR-089: en SCIE, 4 puertas, una llegada se quedó sin puesto y pasó de largo sobre el aeropuerto).
         for (var pass = 0; pass < 2; pass++)
@@ -936,8 +937,10 @@ public sealed class TrafficDirector
                     continue;
                 if (GeoMath.DistanceM(p.Position, ctx.Pilot) < ParkedFleetPlanner.UserClearanceM + halfSpan + 20)
                     continue;
-                // Preferir su aerolínea y el puesto más justo (los grandes quedan para los grandes); algo de azar.
-                var score = (p.Airlines.Contains(airline) ? 0 : 50) + Math.Abs(p.RadiusM - halfSpan) + _rng.NextDouble() * 10;
+                // Preferir su aerolínea, su clase (carga o pasajeros) y el puesto más justo (los grandes quedan para los
+                // grandes); algo de azar.
+                var score = (p.Airlines.Contains(airline) ? 0 : 50) + ParkedFleetPlanner.KindPenalty(p, cargo)
+                    + Math.Abs(p.RadiusM - halfSpan) + _rng.NextDouble() * 10;
                 if (score < bestScore)
                 {
                     bestScore = score;

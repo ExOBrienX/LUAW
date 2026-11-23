@@ -234,7 +234,7 @@ public sealed partial class MainWindowViewModel
             : Tr.F("{0} en tierra · {1} en el aire · {2} lejos (virtuales)", ground, air, virtualCount);
         TrafficCounts = Tr.F("Rodando {0}/{1} · Aire {2}/{3} · ", Math.Max(0, ground - parked.Count), _settings.MaxGround, air, AirMax) +
                         Tr.F("{0} en movimiento · {1} esperando · {2} estacionados · ", moving.Length - virtualCount, waitingCount, parked.Count) +
-                        $"{virtualCount} virtuales{(_director is { } d ? " · " + d.Status : "")}";
+                        Tr.F("{0} virtuales", virtualCount) + (_director is { } d ? " · " + d.Status : "");
         OnPropertyChanged(nameof(ConnectionText));
         OnPropertyChanged(nameof(IsConnected));
         OnPropertyChanged(nameof(AirportText));

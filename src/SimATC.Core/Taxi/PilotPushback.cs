@@ -49,15 +49,15 @@ public sealed record PushbackPlan(Polyline Path, double EndHeadingDeg, PushbackP
         _ => Tr.T("Recto hacia atrás"),
     }) + Tr.F(", terminas mirando hacia {0} ({1:000}°)", PilotPushback.Cardinal(EndHeadingDeg), EndHeadingDeg);
 
-    /// <summary>Explicación para la ventana, en español.</summary>
+    /// <summary>Explicación para la ventana, en el idioma de la interfaz.</summary>
     public string Message => Problem switch
     {
-        PushbackProblem.TooShort => "Demasiado corto: alarga el tramo recto.",
-        PushbackProblem.RadiusTooSmall => $"Giro demasiado cerrado: el radio mínimo es {PilotPushback.MinRadiusM:0} m.",
-        PushbackProblem.TurnTooLarge => $"Giro de más de {PilotPushback.MaxTurnDeg:0}°.",
-        PushbackProblem.CrossesRunway => "La maniobra entra a una pista.",
-        PushbackProblem.Unreachable => "No se llega a esa posición con este radio: aleja el avión final, cambia su rumbo o el radio.",
-        _ => EndsOnTaxiway ? "Se puede hacer. Enter para empezar." : "Se puede hacer, pero termina lejos de una calle de rodaje.",
+        PushbackProblem.TooShort => Tr.T("Demasiado corto: alarga el tramo recto."),
+        PushbackProblem.RadiusTooSmall => Tr.F("Giro demasiado cerrado: el radio mínimo es {0:0} m.", PilotPushback.MinRadiusM),
+        PushbackProblem.TurnTooLarge => Tr.F("Giro de más de {0:0}°.", PilotPushback.MaxTurnDeg),
+        PushbackProblem.CrossesRunway => Tr.T("La maniobra entra a una pista."),
+        PushbackProblem.Unreachable => Tr.T("No se llega a esa posición con este radio: aleja el avión final, cambia su rumbo o el radio."),
+        _ => EndsOnTaxiway ? Tr.T("Se puede hacer. Enter para empezar.") : Tr.T("Se puede hacer, pero termina lejos de una calle de rodaje."),
     };
 }
 

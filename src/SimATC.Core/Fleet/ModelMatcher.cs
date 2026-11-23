@@ -58,9 +58,34 @@ public sealed class ModelMatcher
 
     /// <summary>Modelos de carga con livery de aerolínea (para las plataformas de carga sin aerolíneas de carga en las rutas).</summary>
     public IReadOnlyList<AircraftModel> CargoModels() =>
-        [.. _all.Where(m => !m.IsGeneric && m.IcaoAirline.Length > 0
-                            && (m.ParkingTypes.Contains("CARGO") || m.Title.Contains("Cargo", StringComparison.OrdinalIgnoreCase)
-                                || m.Title.Contains("Freight", StringComparison.OrdinalIgnoreCase)))];
+        [.. _all.Where(m => !m.IsGeneric && m.IcaoAirline.Length > 0 && IsCargo(m))];
+
+    /// <summary>Modelo de carga: puesto de carga en su cfg, o "Cargo"/"Freight" en el título.</summary>
+    public static bool IsCargo(AircraftModel m) =>
+        m.ParkingTypes.Contains("CARGO") || m.Title.Contains("Cargo", StringComparison.OrdinalIgnoreCase)
+        || m.Title.Contains("Freight", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Aerolínea de carga según sus liveries instaladas: tiene alguna y todas son de carga (ADR-163). La base mundial de rutas
+    /// no dice si una aerolínea es de carga.
+    /// </summary>
+    public bool IsCargoAirline(string airline)
+    {
+        airline = airline.Trim().ToUpperInvariant();
+        var any = false;
+        foreach (var (key, models) in _byAirlineType)
+        {
+            if (key.Airline != airline)
+                continue;
+            foreach (var m in models)
+            {
+                if (!IsCargo(m))
+                    return false;
+                any = true;
+            }
+        }
+        return any;
+    }
 
     /// <summary>
     /// Envergadura para asignar puestos: el mayor wing_span instalado para el tipo del modelo. Los cfg de AIG traen

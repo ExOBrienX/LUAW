@@ -15,6 +15,7 @@ public class TrafficLevelTests
 
     private static readonly Lazy<AirportData> Lemd = new(() => Load("LEMD"));
     private static readonly Lazy<AirportData> Scie = new(() => Load("SCIE"));
+    private static readonly Lazy<AirportData> Scel = new(() => Load("SCEL"));
 
     // TEST DATA: aerolíneas y modelos inventados (una de base con muchos destinos, otras chicas, una de carga).
     private static RouteAirline Airline(string icao, int destinations, bool cargo, params string[] types) =>
@@ -100,6 +101,93 @@ public class TrafficLevelTests
         var airline = plan.Where(p => p.Airline.Length > 0).ToList();
         var cap = Math.Max(2, (int)Math.Ceiling(ParkedFleetPlanner.AirlineCapShare * airline.Count)) + 1;
         Assert.All(airline.GroupBy(p => p.Airline).Where(g => g.Key != "HUB"), g => Assert.True(g.Count() <= cap, $"{g.Key} {g.Count()}"));
+    }
+
+    // TEST DATA: como EGCC: dos de corto radio con muchos destinos y dos de largo radio con uno.
+    private static RouteList ShortAndLongHaul() => new("TEST", new RouteSource("test", "", 0, ""), true, null,
+    [
+        Airline("EZY", 40, false),
+        Airline("RYR", 30, false),
+        Airline("QTR", 1, false),
+        Airline("UAE", 1, false),
+    ]);
+
+    private static ModelMatcher LongHaulMatcher() => new(
+    [
+        M("A320", "EZY", 35.8), M("A20N", "EZY", 35.8), M("B738", "RYR", 35.8),
+        M("B77W", "QTR", 64.8), M("A359", "QTR", 64.75), M("B77W", "UAE", 64.8), M("A388", "UAE", 79.75),
+    ], []);
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void Long_haul_airlines_get_the_heavy_gates_but_only_a_few_per_destination(int seed)
+    {
+        var matcher = LongHaulMatcher();
+        var plan = ParkedFleetPlanner.PlanForLevel(Lemd.Value, ShortAndLongHaul(), matcher, matcher.TypesFor,
+            TrafficPreset.For(TrafficLevel.High, 40), 6, null, seed);
+        // Antes, las de corto radio ganaban casi todas las puertas grandes por tener más destinos (EGCC sin Qatar ni Emirates).
+        foreach (var airline in new[] { "QTR", "UAE" })
+        {
+            var count = plan.Count(p => p.Airline == airline);
+            Assert.InRange(count, 1, 2 * ParkedFleetPlanner.WidebodyPerDestination);
+        }
+        // Lo que sobra de las puertas grandes sigue llenándose como antes.
+        Assert.Contains(plan, p => StandCensus.CategoryOf(p.Parking) == StandCategory.GateHeavy && p.Airline is "EZY" or "RYR");
+    }
+
+    // TEST DATA: la base mundial no dice qué aerolínea es de carga (todas llegan como de pasajeros).
+    private static RouteList WithUnflaggedCargo() => new("TEST", new RouteSource("test", "", 0, ""), true, null,
+    [
+        Airline("EZY", 20, false),
+        Airline("BCS", 6, false),
+        Airline("FDX", 6, false),
+        Airline("CPA", 2, false),
+    ]);
+
+    private static AircraftModel Freighter(string type, string airline, double span) =>
+        new($"T_{type}_{airline}_Cargo", ModelSource.Fsltl, type, airline, WakeCategory.Medium, 2, span, ["CARGO"], []);
+
+    private static ModelMatcher CargoMatcher() => new(
+    [
+        M("A320", "EZY", 35.8), Freighter("B752", "BCS", 38), Freighter("B763", "FDX", 47.6), Freighter("AT76", "FDX", 27),
+        M("B77W", "CPA", 64.8), Freighter("B748", "CPA", 68.4),
+    ], []);
+
+    [Fact]
+    public void Airlines_with_only_cargo_liveries_are_cargo_airlines()
+    {
+        var matcher = CargoMatcher();
+        Assert.True(matcher.IsCargoAirline("BCS"));
+        Assert.True(matcher.IsCargoAirline("fdx"));
+        Assert.False(matcher.IsCargoAirline("CPA")); // pasajeros y carga: sigue siendo de pasajeros
+        Assert.False(matcher.IsCargoAirline("EZY"));
+        Assert.False(matcher.IsCargoAirline("XXX")); // sin liveries
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void Cargo_airlines_from_the_world_routes_never_park_at_passenger_gates(int seed)
+    {
+        var matcher = CargoMatcher();
+        // SCEL tiene plataformas de carga (LEMD no); personalizado con 200 para que se llenen (van después de las puertas).
+        var plan = ParkedFleetPlanner.PlanForLevel(Scel.Value, WithUnflaggedCargo(), matcher, matcher.TypesFor,
+            TrafficPreset.For(TrafficLevel.Custom, 200), 6, null, seed);
+        Assert.All(plan.Where(p => p.Airline is "BCS" or "FDX"),
+            p => Assert.Equal(StandCategory.Cargo, StandCensus.CategoryOf(p.Parking)));
+        Assert.Contains(plan, p => p.Airline is "BCS" or "FDX");
+    }
+
+    [Fact]
+    public void Arrivals_prefer_a_stand_of_their_kind()
+    {
+        var gate = new Parking(ParkingType.GateHeavy, default, default, 1, new(0, 0), 0, 40, []);
+        var ramp = new Parking(ParkingType.RampCargo, default, default, 2, new(0, 0), 0, 40, []);
+        Assert.True(ParkedFleetPlanner.KindPenalty(gate, cargo: true) > ParkedFleetPlanner.KindPenalty(ramp, cargo: true));
+        Assert.True(ParkedFleetPlanner.KindPenalty(ramp, cargo: false) > ParkedFleetPlanner.KindPenalty(gate, cargo: false));
     }
 
     [Fact]

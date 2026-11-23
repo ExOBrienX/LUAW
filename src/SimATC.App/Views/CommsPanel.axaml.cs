@@ -96,4 +96,7 @@ public partial class CommsPanel : UserControl
 
     /// <summary>Pone el cursor en el campo de texto (p. ej. al abrir el panel).</summary>
     public void FocusInput() => Input.Focus();
+
+    /// <summary>Tras enviar con el botón, el foco vuelve al campo para seguir escribiendo.</summary>
+    private void OnSendClick(object? sender, RoutedEventArgs e) => Input.Focus();
 }

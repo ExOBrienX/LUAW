@@ -21,6 +21,12 @@ public static partial class ParkedFleetPlanner
     /// <summary>Media envergadura mínima (m) que se prefiere en una puerta grande (fuselaje ancho: ~44 m de envergadura).</summary>
     public const double WidebodyHalfSpanM = 22;
 
+    /// <summary>
+    /// Puertas grandes que puede ocupar una aerolínea de fuselaje ancho por cada destino suyo (ADR-162): las de largo radio
+    /// tienen pocos destinos y casi nunca ganaban el sorteo frente a las de corto radio.
+    /// </summary>
+    public const int WidebodyPerDestination = 2;
+
     private static readonly StandCategory[] AirlineCategories =
         [StandCategory.GateHeavy, StandCategory.GateMedium, StandCategory.GateSmall, StandCategory.Cargo, StandCategory.Remote];
 
@@ -57,12 +63,16 @@ public static partial class ParkedFleetPlanner
             left -= quota[c];
         }
 
-        var pax = Pool(routes.Airlines.Where(a => !a.Cargo));
-        var cargo = Pool(routes.Airlines.Where(a => a.Cargo));
+        // De carga: las marcadas en la lista o, sin tipos en la lista (base mundial), las que solo tienen liveries de carga.
+        bool IsCargo(RouteAirline a) => a.Cargo || a.Types.Count == 0 && matcher.IsCargoAirline(a.Icao);
+        var pax = Pool(routes.Airlines.Where(a => !IsCargo(a)));
+        var cargo = Pool(routes.Airlines.Where(IsCargo));
         var hub = pax.Count > 0 && pax[0].Weight / pax.Sum(x => x.Weight) >= HubShare ? pax[0].Airline.Icao : null;
         var cap = Math.Max(2, (int)Math.Ceiling(AirlineCapShare * Math.Max(1, airlineTarget)));
         var perAirline = new Dictionary<string, int>(StringComparer.Ordinal);
         var cargoModels = matcher.CargoModels();
+        var widebody = WidebodyPool(pax, typesForAirline, matcher);
+        var onHeavy = new Dictionary<string, int>(StringComparer.Ordinal);
 
         foreach (var category in AirlineCategories)
         {
@@ -75,8 +85,16 @@ public static partial class ParkedFleetPlanner
                 if (used.Contains(i))
                     continue;
                 var p = airport.Parkings[i];
-                if (PickForStand(p, category, rng, pax, cargo, cargoModels, typesForAirline, matcher, hub, cap, perAirline, placed, user) is not { } pick)
+                // Puerta grande: primero una aerolínea de fuselaje ancho que no haya llenado su parte; si no, como siempre.
+                var pick = category == StandCategory.GateHeavy
+                    && WidebodyOpen(widebody, onHeavy) is { Count: > 0 } open
+                    && PickForStand(p, category, rng, open, cargo, cargoModels, typesForAirline, matcher, hub, cap, perAirline, placed, user, wideOnly: true) is { } wide
+                        ? wide
+                        : PickForStand(p, category, rng, pax, cargo, cargoModels, typesForAirline, matcher, hub, cap, perAirline, placed, user);
+                if (pick is null)
                     continue;
+                if (category == StandCategory.GateHeavy && HalfSpan(matcher, pick.Match.Model) >= WidebodyHalfSpanM)
+                    onHeavy[pick.Airline] = onHeavy.GetValueOrDefault(pick.Airline) + 1;
                 used.Add(i);
                 perAirline[pick.Airline] = perAirline.GetValueOrDefault(pick.Airline) + 1;
                 placed.Add(new ParkedAircraft(pick.Airline, pick.Type, pick.Tail, pick.Match, i, p) { Decor = category == StandCategory.Remote });
@@ -122,6 +140,24 @@ public static partial class ParkedFleetPlanner
             .Where(x => x.Weight > 0)
             .OrderByDescending(x => x.Weight)];
 
+    /// <summary>
+    /// Castigo (m de puntaje) por elegir un puesto de otra clase: un carguero en una puerta o uno de pasajeros en una plataforma
+    /// de carga (ADR-163). Es preferencia, no prohibición: si no queda otro, igual se usa.
+    /// </summary>
+    public static double KindPenalty(Parking p, bool cargo) =>
+        cargo == (p.Type == ParkingType.RampCargo) ? 0 : 100;
+
+    /// <summary>Las aerolíneas de pasajeros con algún modelo de fuselaje ancho instalado, con su peso.</summary>
+    private static List<(RouteAirline Airline, double Weight)> WidebodyPool(List<(RouteAirline Airline, double Weight)> pax,
+        Func<string, IReadOnlyList<string>> typesForAirline, ModelMatcher matcher) =>
+        [.. pax.Where(x => (x.Airline.Types.Count > 0 ? x.Airline.Types : typesForAirline(x.Airline.Icao))
+            .Any(t => matcher.Match(x.Airline.Icao, t, x.Airline.Icao) is { } m && HalfSpan(matcher, m.Model) >= WidebodyHalfSpanM))];
+
+    /// <summary>Las de fuselaje ancho que todavía no ocupan sus puertas grandes (<see cref="WidebodyPerDestination"/> por destino).</summary>
+    private static List<(RouteAirline Airline, double Weight)> WidebodyOpen(List<(RouteAirline Airline, double Weight)> widebody,
+        Dictionary<string, int> onHeavy) =>
+        [.. widebody.Where(x => onHeavy.GetValueOrDefault(x.Airline.Icao) < Math.Max(1, (int)Math.Ceiling(x.Weight * WidebodyPerDestination)))];
+
     private static List<int> Shuffled(AirportData airport, StandCategory category, Random rng)
     {
         var list = new List<int>();
@@ -146,7 +182,7 @@ public static partial class ParkedFleetPlanner
     private static Pick? PickForStand(Parking p, StandCategory category, Random rng,
         List<(RouteAirline Airline, double Weight)> pax, List<(RouteAirline Airline, double Weight)> cargo,
         IReadOnlyList<AircraftModel> cargoModels, Func<string, IReadOnlyList<string>> typesForAirline, ModelMatcher matcher,
-        string? hub, int cap, Dictionary<string, int> perAirline, List<ParkedAircraft> placed, GeoPoint? user)
+        string? hub, int cap, Dictionary<string, int> perAirline, List<ParkedAircraft> placed, GeoPoint? user, bool wideOnly = false)
     {
         for (var attempt = 0; attempt < 12; attempt++)
         {
@@ -180,6 +216,8 @@ public static partial class ParkedFleetPlanner
                 if (matcher.Match(airline, type, tail) is not { } match)
                     continue;
                 var half = HalfSpan(matcher, match.Model);
+                if (wideOnly && half < WidebodyHalfSpanM)
+                    continue;
                 if (!Fits(p, half) || user is { } u && GeoMath.DistanceM(p.Position, u) < UserClearanceM + half
                     || Collides(p.Position, half, placed, matcher))
                     continue;

@@ -103,6 +103,12 @@
             <Setter Property="CornerRadius" Value="6" />
             <Setter Property="Opacity" Value="0.7" />
         </Style>
+        <Style Selector="Button.send">
+            <Setter Property="Background" Value="{StaticResource BgRaised}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentLine}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
         <Style Selector="Button.radio.on">
             <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
             <Setter Property="Opacity" Value="1" />
@@ -239,13 +245,19 @@
                     </TextBlock>
                     <!-- El texto fantasma va detrás del campo, con la misma letra y margen: se ve lo que falta de la sugerencia. -->
                     <Border Background="{StaticResource BgDeep}" BorderBrush="{StaticResource AccentLine}" BorderThickness="1" CornerRadius="8">
-                        <Grid>
+                        <Grid ColumnDefinitions="*,Auto">
                             <!-- Los dos con el mismo salto de línea: un mensaje largo baja de renglón en vez de cortarse. -->
                             <TextBlock Text="{Binding Ghost}" Foreground="{StaticResource TextFaint}" FontFamily="{StaticResource Mono}" FontSize="13"
                                        Margin="13,11,13,11" TextWrapping="Wrap" IsHitTestVisible="False" />
                             <TextBox x:Name="Input" Text="{Binding InputText}" FontFamily="{StaticResource Mono}" FontSize="13"
                                      Background="Transparent" BorderThickness="0" Padding="12,10" AcceptsReturn="False" TextWrapping="Wrap"
                                      MaxHeight="140" Foreground="{StaticResource TextMain}" />
+                            <!-- Enviar con el mouse, igual que Enter. -->
+                            <Button x:Name="SendButton" Grid.Column="1" Classes="send" Command="{Binding SendCommand}" Click="OnSendClick"
+                                    VerticalAlignment="Bottom" Margin="0,0,6,6" Padding="9,7"
+                                    ToolTip.Tip="{app:T 'Enviar (Enter)'}" AutomationProperties.Name="{app:T 'Enviar'}">
+                                <Path Data="M2,21 L23,12 L2,3 L2,10 L17,12 L2,14 Z" Fill="{StaticResource Accent}" Width="16" Height="16" Stretch="Uniform" />
+                            </Button>
                         </Grid>
                     </Border>
                 </StackPanel>

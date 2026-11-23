@@ -8,7 +8,7 @@ using SimATC.Core.Airports;
 using SimATC.Core.Simulation;
 
 // Dibuja la interfaz de LUAW fuera de pantalla, sin simulador y con datos de demostración, y guarda un PNG por pantalla.
-// Uso: dotnet run --project tools/SimATC.UiShots -- [carpeta de salida] [ancho] [alto] [pasos] [idioma es|en]
+// Uso: dotnet run --project tools/SimATC.UiShots -- [carpeta de salida] [ancho] [alto] [pasos] [idioma es|en] [origen] [destino]
 // No toca la configuración ni los vuelos de verdad: usa una carpeta de datos temporal (SIMATC_HOME).
 
 var outDir = Path.GetFullPath(args.Length > 0 ? args[0] : "ui-shots");
@@ -28,20 +28,37 @@ AppBuilder.Configure<App>()
 // Idioma de la interfaz para las capturas (por defecto, español).
 SimATC.Core.Text.Tr.Load(Path.Combine(AppContext.BaseDirectory, "data"), args.Length > 4 ? args[4] : "es");
 
-// TEST DATA: SCEL de los datos de prueba, el piloto en un puesto con motores apagados.
+// TEST DATA: SCEL→SCIE de los datos de prueba (u otro par guardado), el piloto en un puesto con motores apagados.
+var originIcao = args.Length > 5 ? args[5].ToUpperInvariant() : "SCEL";
+var destIcao = args.Length > 6 ? args[6].ToUpperInvariant() : "SCIE";
 var repo = FindRepo();
 // Son datos guardados desde el simulador: solo están en el repositorio de desarrollo (ADR-153).
-if (!File.Exists(Path.Combine(repo, "tests", "SimATC.Core.Tests", "Data", "SCEL.json")))
+if (!File.Exists(Path.Combine(repo, "tests", "SimATC.Core.Tests", "Data", originIcao + ".json")))
 {
     Console.Error.WriteLine("UiShots needs tests/SimATC.Core.Tests/Data/SCEL.json and SCIE.json (airports saved from the simulator; not published).");
     Environment.Exit(1);
 }
-var scel =AirportCache.Deserialize(File.ReadAllText(Path.Combine(repo, "tests", "SimATC.Core.Tests", "Data", "SCEL.json")))!.Airport;
-var scie = AirportCache.Deserialize(File.ReadAllText(Path.Combine(repo, "tests", "SimATC.Core.Tests", "Data", "SCIE.json")))!.Airport;
+var scel = AirportCache.Deserialize(File.ReadAllText(Path.Combine(repo, "tests", "SimATC.Core.Tests", "Data", originIcao + ".json")))!.Airport;
+var scie = AirportCache.Deserialize(File.ReadAllText(Path.Combine(repo, "tests", "SimATC.Core.Tests", "Data", destIcao + ".json")))!.Airport;
 var stand = scel.Parkings.First(p => p.Type is ParkingType.GateMedium or ParkingType.GateHeavy);
 var state = new UserAircraftState(stand.Position, scel.ElevationFt, 0, stand.HeadingTrueDeg, 0, 0, 0, true, 118_100, 2000);
-var bridge = new FakeSimBridge(state, TimeSpan.FromMilliseconds(250), new Dictionary<string, AirportData> { ["SCEL"] = scel, ["SCIE"] = scie });
-bridge.Nearby.Add(new NearbyAirport("SCEL", scel.Reference, scel.ElevationFt * 0.3048));
+var bridge = new FakeSimBridge(state, TimeSpan.FromMilliseconds(250), new Dictionary<string, AirportData> { [originIcao] = scel, [destIcao] = scie });
+bridge.Nearby.Add(new NearbyAirport(originIcao, scel.Reference, scel.ElevationFt * 0.3048));
+// TEST DATA: vuelos de ejemplo en el historial ("Mis vuelos"), en la carpeta temporal.
+var logbook = SimATC.Core.Comms.FlightLogbook.PathFor(SimATC.Core.AppPaths.Root);
+File.Delete(logbook);
+var day = DateTime.UtcNow.Date;
+foreach (var (cs, type, from, to, depRwy, arrRwy, standName, daysAgo, minutes, nm, ft) in new[]
+         {
+             ("BAW388", "A320", "EGLL", "EBBR", "27R", "25L", "A12", 9, 55, 199.0, 33000.0),
+             ("UAL1543", "B38M", "KBWI", "KEWR", "33R", "04R", "C71", 6, 48, 175.0, 24000.0),
+             ("IBE3217", "A321", "LEBL", "LEMD", "24L", "18R", "536", 2, 62, 286.0, 35000.0),
+         })
+{
+    var takeoff = day.AddDays(-daysAgo).AddHours(14);
+    SimATC.Core.Comms.FlightLogbook.Add(logbook, new SimATC.Core.Comms.FlightRecord(cs, type, from, to, depRwy, arrRwy, standName,
+        takeoff.AddMinutes(-14), takeoff, takeoff.AddMinutes(minutes), takeoff.AddMinutes(minutes + 9), nm, ft));
+}
 var airports = new AirportProvider(bridge, new AirportCache(Path.Combine(home, "cache", "airports")));
 var vm = new MainWindowViewModel(bridge, airports, Path.Combine(AppContext.BaseDirectory, "data"));
 var window = new MainWindow { DataContext = vm, Width = width, Height = height };
@@ -57,16 +74,18 @@ for (var i = 0; i < 6; i++)
 
 Shot("01-radar-inicio");
 // Un plan manual y los primeros llamados, con las sugerencias (como haría el copiloto).
-vm.ManualCallsign = "LAN205";
-vm.ManualType = "A20N";
-vm.ManualOrigin = "SCEL";
-vm.ManualDestination = "SCIE";
+// TEST DATA: indicativos de ejemplo.
+vm.ManualCallsign = originIcao == "SCEL" ? "LAN205" : "IBE3216";
+vm.ManualType = originIcao == "SCEL" ? "A20N" : "A321";
+vm.ManualOrigin = originIcao;
+vm.ManualDestination = destIcao;
 vm.ManualCruise = "240";
 vm.CreateManualPlanCommand.Execute(null);
 Pump(2500);
 // Las pestañas Salida y Llegada con el selector de pista, antes de la autorización (después queda bloqueado).
 vm.Panel = "plan";
-vm.SelectedDepartureRunway = vm.DepartureRunwayOptions.FirstOrDefault(o => o.Ident == "17L"); // la de llegadas de los IA
+if (originIcao == "SCEL")
+    vm.SelectedDepartureRunway = vm.DepartureRunwayOptions.FirstOrDefault(o => o.Ident == "17L"); // la de llegadas de los IA
 Pump(1500);
 var planTabs = window.FindControl<Avalonia.Controls.TabControl>("PlanTabs")!;
 foreach (var (tab, name) in new[] { (1, "04b-plan-salida"), (2, "04c-plan-llegada") })
@@ -154,10 +173,11 @@ vm.InspectorPhase = SimATC.Core.Text.Tr.T("crucero");
 vm.InspectorAltitude = "FL350";
 vm.InspectorSpeed = "450 kt";
 string L(string s) => SimATC.Core.Text.Tr.T(s);
+var fl350 = args.Length > 4 && args[4] == "en" ? "FL350 · 35,000 ft" : "FL350 · 35.000 ft";
 vm.InspectorRows =
 [
-    new(L("Altitud"), "FL350 · 35.000 ft", L("Ahora")),
-    new(L("Perfil"), L("nivelado") + " · empieza a bajar en 216 NM"),
+    new(L("Altitud"), fl350, L("Ahora")),
+    new(L("Perfil"), L("nivelado") + SimATC.Core.Text.Tr.F(" · empieza a bajar en {0:0} NM", 216)),
     new(L("Velocidad"), "IAS ≈265 kt · GS 450 kt"),
     new(L("Autorizado"), "—"),
     new(L("Simulador"), L("virtual (lejos de ti, no está en el simulador)")),
@@ -165,7 +185,7 @@ vm.InspectorRows =
     new(L("Pista"), "22 · 3,0° · 3752 m"),
     new(L("Procedimientos"), "STAR AKIT3R · ILS 22", L("Ruta")),
     new(L("Ruta"), "LOPIK N852 LNO DCT SUTAL DCT GTQ DCT POGOL DCT LASAT DCT MOROK Z24 AKITO AKIT3R"),
-    new(L("Crucero"), "FL350 · 35.000 ft"),
+    new(L("Crucero"), fl350),
     new(L("Fuente"), L("VATSIM: la ruta que vuelan pilotos reales en ese par (verificada: empalma con la SID y la STAR, sin rodeos)")),
     new(L("Modelo"), "FSLTL_FAIB_A319_EZS-EasyJet Switzerland", L("Avión")),
 ];
@@ -181,7 +201,7 @@ Pump(900);
 WindowShot(push, "15-pushback");
 pvm.IsPushing = true;
 pvm.PushProgress = 55;
-pvm.CrewStatus = "Empujando… faltan 34 m.";
+pvm.CrewStatus = SimATC.Core.Text.Tr.F("Empujando… faltan {0:0} m.", 34);
 Pump(600);
 WindowShot(push, "16-pushback-empujando");
 push.Close();
@@ -209,6 +229,8 @@ void Pump(int ms)
 
 void Shot(string name)
 {
+    // Sin simulador no hay base de rutas: la barra de estado no muestra ese aviso en las capturas.
+    vm.TrafficStatus = "";
     Dispatcher.UIThread.RunJobs();
     AvaloniaHeadlessPlatform.ForceRenderTimerTick();
     using var frame = window.CaptureRenderedFrame();

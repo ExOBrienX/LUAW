@@ -149,9 +149,9 @@ public sealed partial class MainWindowViewModel
             used[c] = used.GetValueOrDefault(c) + 1;
         }
         string Part(StandCategory c, string name) => $"{name} {used.GetValueOrDefault(c)}/{census.GetValueOrDefault(c)}";
-        ParkedBreakdown = Tr.F("Ocupados: {0} · {1} · ", Part(StandCategory.GateHeavy, Tr.T("puertas grandes")), Part(StandCategory.GateMedium, "medianas"))
-                          + $"{Part(StandCategory.GateSmall, "chicas")} · {Part(StandCategory.Cargo, "carga")} · {Part(StandCategory.Remote, "remotos")} · "
-                          + $"{Part(StandCategory.GeneralAviation, "aviación general")}.";
+        ParkedBreakdown = Tr.F("Ocupados: {0} · {1} · ", Part(StandCategory.GateHeavy, Tr.T("puertas grandes")), Part(StandCategory.GateMedium, Tr.T("medianas")))
+                          + $"{Part(StandCategory.GateSmall, Tr.T("chicas"))} · {Part(StandCategory.Cargo, Tr.T("carga"))} · {Part(StandCategory.Remote, Tr.T("remotos"))} · "
+                          + $"{Part(StandCategory.GeneralAviation, Tr.T("aviación general"))}.";
         var airlines = parked.Where(p => p.Aircraft.Airline.Length > 0)
             .GroupBy(p => p.Aircraft.Airline)
             .OrderByDescending(g => g.Count())
