@@ -911,6 +911,12 @@ public sealed class TaxiGraph
     /// <summary>Metros equivalentes por un viraje de más de 100° en un nodo (los aviones no hacen "zetas").</summary>
     public const double SharpTurnM = 250;
 
+    /// <summary>Desde este giro (°) en un nodo es media vuelta: un avión no la hace en una calle (ADR-171).</summary>
+    public const double UTurnDeg = 140;
+
+    /// <summary>Metros equivalentes por una media vuelta: casi cualquier rodeo es mejor.</summary>
+    public const double UTurnM = 3000;
+
     /// <summary>
     /// Costo de recorrer <paramref name="e"/> llegando a <paramref name="at"/> desde <paramref name="prev"/> por
     /// <paramref name="prevEdge"/>: largo × recargo por tipo, más los cambios de calle y los virajes cerrados. APROXIMADO.
@@ -960,10 +966,34 @@ public sealed class TaxiGraph
         {
             var h1 = Math.Atan2(p1.EastM - p0.EastM, p1.NorthM - p0.NorthM) * GeoMath.RadToDeg;
             var h2 = Math.Atan2(p2.EastM - p1.EastM, p2.NorthM - p1.NorthM) * GeoMath.RadToDeg;
-            if (Math.Abs(GeoMath.AngleDiffDeg(h1, h2)) > 100)
-                cost += SharpTurnM;
+            var turn = Math.Abs(GeoMath.AngleDiffDeg(h1, h2));
+            if (turn > 100)
+                cost += turn > UTurnDeg && !IsParking(prev) && !IsParking(e.To) ? UTurnM : SharpTurnM;
         }
         return cost;
+    }
+
+    /// <summary>
+    /// ¿La ruta da media vuelta en alguna calle? Con <paramref name="before"/>, también al empezar (de dónde viene el avión). La
+    /// entrada y la salida de un puesto no cuentan.
+    /// </summary>
+    public bool HasUTurn(TaxiRoute route, int before = -1)
+    {
+        var n = route.Nodes;
+        for (var k = 0; k + 1 < n.Count; k++)
+        {
+            var prev = k == 0 ? before : n[k - 1];
+            if (prev < 0 || IsParking(prev) || IsParking(n[k + 1]))
+                continue;
+            var (p0, p1, p2) = (_positions[prev], _positions[n[k]], _positions[n[k + 1]]);
+            if (LocalPoint.Distance(p0, p1) < 1 || LocalPoint.Distance(p1, p2) < 1)
+                continue;
+            var h1 = Math.Atan2(p1.EastM - p0.EastM, p1.NorthM - p0.NorthM) * GeoMath.RadToDeg;
+            var h2 = Math.Atan2(p2.EastM - p1.EastM, p2.NorthM - p1.NorthM) * GeoMath.RadToDeg;
+            if (Math.Abs(GeoMath.AngleDiffDeg(h1, h2)) > UTurnDeg)
+                return true;
+        }
+        return false;
     }
 
     private TaxiRoute BuildRoute(int to, double length, int[] cameFrom, Edge[] cameBy)

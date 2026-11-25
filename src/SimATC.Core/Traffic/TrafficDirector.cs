@@ -105,13 +105,21 @@ public sealed class TrafficDirector
     private readonly ConcurrentDictionary<uint, ParkedPlan> _parkedPlans = new();
 
     // Rutas ya resueltas por par de aeropuertos ("SCIE-SCEL"): se resuelven una vez por sesión.
-    private readonly ConcurrentDictionary<string, (ResolvedRoute Route, DateTime At)> _routeCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, (ResolvedRoute Route, DateTime At, int Fails)> _routeCache = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Una ruta que quedó en directo (faltaban datos: aerovías o rutas de VATSIM todavía cargándose) se vuelve a buscar
     /// pasado este tiempo (min), también la de un estacionado antes de salir (ADR-089: LAN218 salió en directo).
     /// </summary>
     public const double RetryDirectMinutes = 3;
+
+    /// <summary>
+    /// Y cada vez que vuelve a quedar en directo, el doble, hasta este tiempo (min, ADR-166): en KMIA los 13 vuelos que cruzan el
+    /// Atlántico se buscaban cada 3 minutos para siempre, y las búsquedas largas hacen saltar los fotogramas.
+    /// </summary>
+    public const double RetryDirectMaxMinutes = 48;
+
+    internal static double RetryAfterMinutes(int fails) => Math.Min(RetryDirectMaxMinutes, RetryDirectMinutes * Math.Pow(2, Math.Max(0, fails - 1)));
 
     public TrafficDirector(WorldAirports airports, string routesPath, ModelMatcher matcher, TrafficEngine engine, Action<string> log,
         int? seed = null)
@@ -150,18 +158,36 @@ public sealed class TrafficDirector
     /// <summary>Aeropuertos leídos por vuelta (s simulador entrega cada uno en 1-3 s la primera vez; después, de la caché).</summary>
     public const int AirportLoadsPerUpdate = 6;
 
+    /// <summary>Segundos por vuelta para leer más aeropuertos que <see cref="AirportLoadsPerUpdate"/>.</summary>
+    public const double AirportLoadBudgetS = 3;
+
     /// <summary>Hasta cuántos minutos se sigue intentando llenar las llegadas iniciales (los orígenes se leen de a poco).</summary>
     public const double InitialFillMinutes = 8;
 
     private DateTime _initialFillStart = DateTime.MinValue;
     private int _initialCreated;
-    private double _initialDistance = InitialFirstNm;
+
+    // Lugares (NM por la ruta) de las llegadas iniciales que faltan por llenar; NaN = ya no se intenta.
+    private readonly List<double> _initialSlots = [];
 
     /// <summary>La primera llegada inicial se pone a esta distancia (NM) por su ruta.</summary>
     public const double InitialFirstNm = 40;
 
     /// <summary>Hueco mínimo (NM) entre dos llegadas iniciales: ninguna nace encima de otra (ADR-129).</summary>
     public const double InitialMinGapNm = 9;
+
+    /// <summary>
+    /// Una llegada nueva entra desde esta distancia por su ruta (NM), más hasta <see cref="EntrySpreadNm"/> (ADR-165,
+    /// 2026-11-25; antes 150-190, unos 40 min antes de aterrizar). Queda espacio para secuenciarla y reducirla.
+    /// </summary>
+    public const double EntryMinNm = 100;
+    public const int EntrySpreadNm = 30;
+
+    /// <summary>Margen (NM) sobre el radio de inyección: la llegada nueva nace fuera de él.</summary>
+    public const double EntryMarginNm = 20;
+
+    /// <summary>Distancia desde la que entra una llegada nueva, según el radio de inyección.</summary>
+    public static double ArrivalEntryNm() => Math.Max(EntryMinNm, TrafficEngine.InjectDistanceM / Nm + EntryMarginNm);
 
     /// <summary>Parte de las llegadas de una hora que ya vienen en camino al empezar (entre 40 y 170 NM). APROXIMADO.</summary>
     public const double InitialShare = 0.4;
@@ -178,7 +204,10 @@ public sealed class TrafficDirector
 
     private async Task LoadPendingAirportsAsync(CancellationToken ct)
     {
-        for (var i = 0; i < AirportLoadsPerUpdate && LoadAirport is not null && _toLoad.TryDequeue(out var icao); i++)
+        // Los de la caché en disco llegan en milisegundos: al menos AirportLoadsPerUpdate y, si sobra tiempo, los que quepan.
+        var budget = System.Diagnostics.Stopwatch.StartNew();
+        for (var i = 0; (i < AirportLoadsPerUpdate || budget.Elapsed.TotalSeconds < AirportLoadBudgetS)
+             && LoadAirport is not null && _toLoad.TryDequeue(out var icao); i++)
         {
             AirportData? data = null;
             try
@@ -210,6 +239,8 @@ public sealed class TrafficDirector
         _reservedStands.Clear();
         _parkedSince.Clear();
         _window = 0;
+        _arrivalQueue.Clear();
+        _passingQueue.Clear();
         _initialFillDone = false;
     }
 
@@ -382,10 +413,13 @@ public sealed class TrafficDirector
             if (FlightPlanner.LandingFor(airport, ctx.Graph, ident, f.Category) is not { } landing)
                 continue;
             landing = landing.TowardSide(airport.Parkings[stand].Position, FlightPlanner.MinRolloutM(f.Category));
+            if (ctx.Graph is { } exitGraph)
+                landing = FlightPlanner.BestExit(exitGraph, landing, stand, FlightPlanner.MinRolloutM(f.Category));
             // Cerca: sigue su ruta (null); lejos: ruta de llegada nueva desde donde está.
             FlightPath? path = near ? null : FlightPlanner.Arrival(airport, landing, f.Position, f.HeadingDeg).Path;
             if (path is { Count: 0 } || !_reservedStands.TryAdd(stand, f.Callsign))
                 continue;
+            NoteWide(airport, stand, model);
             if (_active.TryGetValue(f.Callsign, out var info))
             {
                 if (info.Window)
@@ -446,6 +480,7 @@ public sealed class TrafficDirector
         if (ctx.Airport?.Icao != _airportIcao)
         {
             _airportIcao = ctx.Airport?.Icao;
+            _arrivalQueue.Clear();
             _initialFillDone = false;
             _nextArrival = _nextDeparture = ctx.UtcNow;
         }
@@ -463,7 +498,8 @@ public sealed class TrafficDirector
                 if (_initialFillStart == DateTime.MinValue || _initialFillAirport != airport.Icao)
                 {
                     (_initialFillStart, _initialFillAirport) = (ctx.UtcNow, airport.Icao);
-                    (_initialCreated, _initialDistance) = (0, InitialFirstNm);
+                    _initialCreated = 0;
+                    _initialSlots.Clear();
                 }
                 _initialFillDone = true;
                 await InitialArrivalsAsync(ctx, routes, airport, runway, rate, ct).ConfigureAwait(false);
@@ -483,8 +519,8 @@ public sealed class TrafficDirector
                     }
                     _nextArrival = ctx.UtcNow + TimeSpan.FromSeconds(60);
                 }
-                // Una llegada nueva entra a la ventana por su ruta (lejos: nadie la ve aparecer).
-                else if (await TryArrivalAsync(ctx, routes, airport, runway, _rng.Next(150, 190), ct).ConfigureAwait(false))
+                // Una llegada nueva entra a la ventana por su ruta (fuera del radio de inyección: nadie la ve aparecer).
+                else if (await TryArrivalAsync(ctx, routes, airport, runway, ArrivalEntryNm() + _rng.Next(0, EntrySpreadNm), ct).ConfigureAwait(false))
                     _nextArrival = ctx.UtcNow + Jitter(3600 / rate);
             }
             ScheduleDepartures(ctx, routes, airport, rate);
@@ -498,6 +534,9 @@ public sealed class TrafficDirector
         Status = Tr.F("{0} vuelos activos ({1} de paso), {2} rutas en la zona", _active.Count, _window, routes.LegCount);
     }
 
+    /// <summary>¿Ya está cargada la base de rutas de la zona? Antes, la demanda es solo una estimación por puertas.</summary>
+    public bool RoutesKnown => _routes is not null;
+
     /// <summary>Carga las rutas de la zona (si no están) sin decidir nada.</summary>
     public Task<bool> EnsureZoneAsync(GeoPoint pilot) => EnsureRoutesAsync(pilot);
 
@@ -510,8 +549,39 @@ public sealed class TrafficDirector
         var legs = _routes?.DeparturesFrom(icao);
         if (legs is null || legs.Count == 0)
             return null;
+        return BuildRouteList(icao, [.. legs.Where(l => !Stray(l.Airline, icao))], _airports, a => CargoAt(a, icao));
+    }
+
+    /// <summary>¿Una aerolínea de pasajeros que no opera ahí de verdad? (las de carga sí hacen vuelos sueltos).</summary>
+    /// <summary>¿Es de carga ahí? Una aerolínea de carga, o una mixta que nunca va directo a su país desde ese aeropuerto.</summary>
+    private bool CargoAt(string airline, string icao) => _matcher.IsCargoAirline(airline)
+        || _routes?.NeverFromHome(airline, icao) == true && _matcher.IsMixed(airline);
+
+    private bool Stray(string airline, string icao) => _routes?.IsStray(airline, icao) == true && !_matcher.IsCargoAirline(airline);
+
+    /// <summary>Lo que pesa un destino con un solo indicativo en la base (muchos son vuelos sueltos o viejos); con dos o más, 1.</summary>
+    public const double SingleCallsignWeight = 0.5;
+
+    public static RouteList BuildRouteList(string icao, IReadOnlyList<WorldLeg> legs, WorldAirports airports,
+        Func<string, bool>? cargo = null)
+    {
+        var here = airports.Find(icao);
         var airlines = legs.GroupBy(l => l.Airline)
-            .Select(g => new RouteAirline(g.Key, g.Key, true, false, [], g.Select(l => l.Destination).Distinct().ToList(), []))
+            .Select(g =>
+            {
+                var destinations = g.GroupBy(l => l.Destination).ToList();
+                var nm = new List<double>();
+                foreach (var d in destinations)
+                {
+                    if (here is { } h && airports.Find(d.Key) is { } a)
+                        nm.Add(GeoMath.DistanceM(h.Position, a.Position) / Nm);
+                }
+                return new RouteAirline(g.Key, g.Key, true, cargo?.Invoke(g.Key) == true, [], destinations.Select(d => d.Key).ToList(), [])
+                {
+                    LegsNm = nm,
+                    Weight = destinations.Sum(d => d.Count() > 1 ? 1 : SingleCallsignWeight),
+                };
+            })
             .ToList();
         return new RouteList(icao, new RouteSource("vradarserver/standing-data (CC0)", "https://github.com/vradarserver/standing-data", 0,
             "2026-11-01"), Reviewed: false, "Generada de la base mundial de rutas por indicativo.", airlines);
@@ -688,18 +758,27 @@ public sealed class TrafficDirector
         // Barajas en 8 minutos y 54 esperas).
         var inbound = _active.Values.Count(f => !f.Window && f.Leg.Destination == airport.Icao);
         var wanted = (int)Math.Round(rate * InitialShare) - Math.Max(inbound, _initialCreated);
-        var distance = _initialDistance;
         var created = 0;
-        var budget = System.Diagnostics.Stopwatch.StartNew();
-        for (var i = 0; i < wanted && distance < 170 && budget.Elapsed.TotalSeconds < 60; i++)
+        if (_initialSlots.Count == 0)
         {
-            if (await TryArrivalAsync(ctx, routes, airport, runway, distance, ct).ConfigureAwait(false))
-                created++;
             // El hueco de la hora (~260 kt de media) y nunca menos de InitialMinGapNm entre una y la siguiente.
-            distance += Math.Max(InitialMinGapNm, 260 / Math.Max(rate, 1)) + _rng.Next(0, 10);
+            for (var d = InitialFirstNm; d < 170; d += Math.Max(InitialMinGapNm, 260 / Math.Max(rate, 1)) + _rng.Next(0, 10))
+                _initialSlots.Add(d);
+        }
+        // Un lugar solo se gasta si se llenó o si no había nada que esperar (ADR-165): antes se gastaban todos en la primera
+        // vuelta aunque los datos de los vuelos todavía se estuvieran leyendo, y el cielo quedaba vacío.
+        var budget = System.Diagnostics.Stopwatch.StartNew();
+        for (var i = 0; i < _initialSlots.Count && created < wanted && budget.Elapsed.TotalSeconds < 30; i++)
+        {
+            if (double.IsNaN(_initialSlots[i]))
+                continue;
+            var ok = await TryArrivalAsync(ctx, routes, airport, runway, _initialSlots[i], ct).ConfigureAwait(false);
+            if (ok)
+                created++;
+            if (ok || !_arrivalPending)
+                _initialSlots[i] = double.NaN;
         }
         _initialCreated += created;
-        _initialDistance = distance;
         _nextArrival = ctx.UtcNow + Jitter(3600 / Math.Max(rate, 0.1));
         _nextDeparture = ctx.UtcNow + TimeSpan.FromSeconds(_rng.Next(30, 120));
         if (created > 0)
@@ -707,7 +786,7 @@ public sealed class TrafficDirector
         // Faltan (los procedimientos de los orígenes todavía se están leyendo): otra vuelta, hasta tener ~80 % de las que pide
         // la hora o pasados unos minutos (prueba de Marco en RKSI, ADR-115: con una sola creada se daba por terminado y el
         // cielo quedaba vacío; las siguientes entraban de a una cada pocos minutos a 150-190 NM).
-        if (wanted > 0 && created < wanted * 0.8 && distance < 170 && (ctx.UtcNow - _initialFillStart).TotalMinutes < InitialFillMinutes)
+        if (wanted > 0 && created < wanted * 0.8 && _initialSlots.Exists(d => !double.IsNaN(d)) && (ctx.UtcNow - _initialFillStart).TotalMinutes < InitialFillMinutes)
             _initialFillDone = false;
     }
 
@@ -715,37 +794,99 @@ public sealed class TrafficDirector
     private async Task<bool> TryArrivalAsync(DirectorContext ctx, WorldRoutes routes, AirportData airport, string runway,
         double remainingNm, CancellationToken ct)
     {
+        _arrivalPending = false;
+        // Primero las que esperaban sus datos (ADR-165): se sortean entre miles y casi nunca volvían a salir.
+        for (var i = 0; i < _arrivalQueue.Count; i++)
+        {
+            var (leg, since) = _arrivalQueue[i];
+            var tried = await TryLegAsync(ctx, airport, runway, leg, remainingNm, ct).ConfigureAwait(false);
+            if (tried == LegResult.Created)
+            {
+                _arrivalQueue.RemoveAt(i);
+                return true;
+            }
+            if (tried == LegResult.Discarded || (ctx.UtcNow - since).TotalMinutes > ArrivalQueueMinutes)
+                _arrivalQueue.RemoveAt(i--);
+            else if (tried == LegResult.Pending)
+                _arrivalPending = true;
+        }
         var legs = routes.ArrivalsTo(airport.Icao);
-        for (var attempt = 0; attempt < 12 && legs.Count > 0; attempt++)
+        for (var attempt = 0; attempt < 12 && legs.Count > 0 && _arrivalQueue.Count < MaxArrivalQueue; attempt++)
         {
             var leg = legs[_rng.Next(legs.Count)];
-            if (_active.ContainsKey(leg.Callsign) || _airports.Find(leg.Origin) is not { } origin)
+            if (_arrivalQueue.Exists(q => q.Leg.Callsign == leg.Callsign))
                 continue;
-            if (GeoMath.DistanceM(origin.Position, airport.Reference) / Nm < Math.Max(60, remainingNm * 0.7))
-                continue;
-            // Sus procedimientos de salida se leen primero (unos segundos); el vuelo se crea en una vuelta siguiente.
-            if (!AirportReady(leg.Origin))
-                continue;
-            if (await CreateArrivalAsync(ctx, airport, runway, leg, origin, remainingNm, ct).ConfigureAwait(false))
+            var tried = await TryLegAsync(ctx, airport, runway, leg, remainingNm, ct).ConfigureAwait(false);
+            if (tried == LegResult.Created)
                 return true;
+            if (tried != LegResult.Pending)
+                continue;
+            _arrivalPending = true;
+            _arrivalQueue.Add((leg, ctx.UtcNow));
         }
         return false;
+    }
+
+    private enum LegResult
+    {
+        /// <summary>Creada.</summary>
+        Created,
+
+        /// <summary>Sus datos (procedimientos del origen o la ruta) todavía se están leyendo.</summary>
+        Pending,
+
+        /// <summary>No cabe a esta distancia ahora (cerca del piloto o de otro avión, sin puesto): puede servir a otra.</summary>
+        NoRoom,
+
+        /// <summary>No sirve.</summary>
+        Discarded,
+    }
+
+    // Llegadas que esperan sus datos (solo en la vuelta del director).
+    private readonly List<(WorldLeg Leg, DateTime Since)> _arrivalQueue = [];
+    private bool _arrivalPending;
+
+    /// <summary>Cuántas llegadas esperan sus datos a la vez.</summary>
+    public const int MaxArrivalQueue = 12;
+
+    /// <summary>Minutos que una llegada espera en esa cola (sus datos, o un lugar donde aparecer).</summary>
+    public const double ArrivalQueueMinutes = 6;
+
+    private async Task<LegResult> TryLegAsync(DirectorContext ctx, AirportData airport, string runway, WorldLeg leg, double remainingNm,
+        CancellationToken ct)
+    {
+        if (_active.ContainsKey(leg.Callsign) || _airports.Find(leg.Origin) is not { } origin || Stray(leg.Airline, airport.Icao))
+            return LegResult.Discarded;
+        var apartNm = GeoMath.DistanceM(origin.Position, airport.Reference) / Nm;
+        if (apartNm < 60)
+            return LegResult.Discarded;
+        if (apartNm < remainingNm * 0.7)
+            return LegResult.NoRoom;
+        // Sus procedimientos de salida se leen primero (unos segundos); el vuelo se crea en una vuelta siguiente.
+        if (!AirportReady(leg.Origin))
+            return LegResult.Pending;
+        return await CreateArrivalAsync(ctx, airport, runway, leg, origin, remainingNm, ct).ConfigureAwait(false);
     }
 
     /// <summary>
     /// Crea una llegada con puesto reservado (RF-12c): su plan completo desde su origen (con la pista de llegada en uso que da
     /// la ruta más corta) y el avión en el punto de ese plan a <paramref name="remainingNm"/> NM del umbral.
     /// </summary>
-    private async Task<bool> CreateArrivalAsync(DirectorContext ctx, AirportData airport, string runway, WorldLeg leg, WorldAirport origin,
+    private async Task<LegResult> CreateArrivalAsync(DirectorContext ctx, AirportData airport, string runway, WorldLeg leg, WorldAirport origin,
         double remainingNm, CancellationToken ct)
     {
-        var match = PickModel(leg.Airline, null, leg.Callsign);
+        var match = PickModel(leg, origin, new WorldAirport(airport.Icao, airport.Reference, airport.ElevationFt),
+            NeedsLivery(airport.Icao, _routes?.ArrivalsTo(airport.Icao)), CargoAt(leg.Airline, airport.Icao),
+            ctx.Parked.Select(q => q.Aircraft.Match.Model.Title).ToHashSet(StringComparer.OrdinalIgnoreCase));
         if (match is null)
-            return false;
+            return LegResult.Discarded;
         var category = AircraftPerformance.For(match.Model).Category;
         var stand = PickStand(ctx, airport, match.Model, leg.Airline);
         if (stand < 0)
-            return false;
+            return LegResult.NoRoom;
+        // Un A380 de pasajeros solo donde hay una puerta para él, por los datos o por el espacio real (ADR-167): no termina en una plataforma de carga.
+        if (match.Model.Wake == WakeCategory.Super && !ModelMatcher.IsCargo(match.Model) && !ParkedFleetPlanner.Gate(airport.Parkings[stand]))
+            return LegResult.Discarded;
         var originData = OtherAirport(leg.Origin);
         PlannedFlight? plan = null;
         LandingRunway? landing = null;
@@ -756,7 +897,9 @@ public sealed class TrafficDirector
                 continue;
             var e = new FlightEnds(leg.Origin, origin.Position, origin.ElevationFt, originData, DepartureRunwayFor(originData, ctx),
                 airport.Icao, airport.Reference, airport.ElevationFt, airport, l);
-            route ??= await RouteForAsync(e, ct).ConfigureAwait(false);
+            route ??= await RouteIfReadyAsync(e, ct, RouteLanes).ConfigureAwait(false);
+            if (route is null)
+                return LegResult.Pending;
             var p = FlightPlanBuilder.Assemble(e, route, category);
             if (plan is null || p.Path.LengthM < plan.Path.LengthM)
             {
@@ -764,16 +907,21 @@ public sealed class TrafficDirector
                 landing = l;
             }
         }
-        if (plan is null || landing is null || plan.Path.LengthM < (remainingNm + 10) * Nm)
-            return false;
+        if (plan is null || landing is null)
+            return LegResult.Discarded;
+        if (plan.Path.LengthM < (remainingNm + 10) * Nm)
+            return LegResult.NoRoom;
         var along = plan.Path.LengthM - remainingNm * Nm;
         var (pos, heading, next, alt, climbing) = plan.At(along, origin.ElevationFt);
         if (GeoMath.DistanceM(pos, ctx.Pilot) < TrafficEngine.InjectDistanceM || TooClose(pos, alt))
-            return false;
+            return LegResult.NoRoom;
         if (!_reservedStands.TryAdd(stand, leg.Callsign))
-            return false;
+            return LegResult.NoRoom;
+        NoteWide(airport, stand, match.Model);
         // Sale de la pista por el lado de su puesto (no la cruza ni la rodea por el otro lado).
         landing = landing.TowardSide(airport.Parkings[stand].Position, FlightPlanner.MinRolloutM(category));
+        if (ctx.Graph is { } exitGraph)
+            landing = FlightPlanner.BestExit(exitGraph, landing, stand, FlightPlanner.MinRolloutM(category));
         _airNow.Add((pos, alt));
         var f = new AirborneAgent(leg.Callsign, leg.Airline, match.Model.IcaoType, leg.Origin, airport.Icao, match.Model, category,
             plan.Path, pos, alt, heading, SpeedFor(category, alt, plan.CruiseFt), climbing ? 1500 : alt < plan.CruiseFt - 300 ? -1200 : 0,
@@ -792,7 +940,7 @@ public sealed class TrafficDirector
         _engine.AddFlight(f);
         _log(Tr.F("{0}: llegada desde {1} ({2}, a {3:0} NM; {4} → ", leg.Callsign, leg.Origin, match.Model.IcaoType, remainingNm, plan.RouteText) +
              Tr.F("{0} {1} [{2}], puesto {3}).", plan.Approach ?? Tr.T("final recta"), landing.Ident, Tr.T(plan.Source), airport.Parkings[stand].DisplayName));
-        return true;
+        return LegResult.Created;
     }
 
     /// <summary>Velocidad verdadera al aparecer: la de crucero arriba; 250-280 kt IAS abajo (≈ +2 % por cada 1000 ft).</summary>
@@ -803,20 +951,68 @@ public sealed class TrafficDirector
     /// La ruta en ruta del par (una vez por sesión: VATSIM, aerovías o directo). Sin aerovías del simulador (tests, sin
     /// conexión), directo y sin guardarla.
     /// </summary>
-    private async Task<ResolvedRoute> RouteForAsync(FlightEnds e, CancellationToken ct)
+    /// <remarks>
+    /// null: se está buscando en segundo plano (hasta <see cref="RouteLanes"/> a la vez) y el vuelo espera a otra vuelta
+    /// (ADR-165). Antes cada ruta detenía al director hasta 25 s y en KMIA casi no entraban llegadas. Con los datos ya en la
+    /// caché tarda milisegundos: se espera <see cref="RouteGraceMs"/> antes de dejarla para después.
+    /// </remarks>
+    private async Task<ResolvedRoute?> RouteIfReadyAsync(FlightEnds e, CancellationToken ct, int lanes = OtherRouteLanes)
     {
         // Por par y pistas: la ruta por aerovías va de la SID de esa pista a la STAR de la pista de llegada.
         var key = $"{e.OriginIcao}/{e.DepartureRunway}-{e.DestinationIcao}/{e.Landing?.Ident}";
-        if (_routeCache.TryGetValue(key, out var cached)
-            && (cached.Route.Source != ResolvedRoute.Direct.Source || (DateTime.UtcNow - cached.At).TotalMinutes < RetryDirectMinutes))
-            return cached.Route;
-        if (Airways is null)
+        if (CachedRoute(key) is { } ready)
+            return ready;
+        if (Airways is not { } airways)
             return ResolvedRoute.Direct;
-        var route = await FlightPlanBuilder.ResolveRouteAsync(e, Airways, Nav, Vatsim, _log, ct).ConfigureAwait(false);
-        _routeCache[key] = (route, DateTime.UtcNow);
-        _log(Tr.F("Ruta {0} ({1}): {2}", key, route.Source, route.Text));
-        return route;
+        if (!_resolving.TryGetValue(key, out var task))
+        {
+            if (_resolving.Count >= lanes)
+                return null;
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            task = ResolveAsync(release.Task, key, e, airways, ct);
+            _resolving[key] = task;
+            release.SetResult();
+        }
+        await Task.WhenAny(task, Task.Delay(RouteGraceMs, ct)).ConfigureAwait(false);
+        return CachedRoute(key);
     }
+
+    private ResolvedRoute? CachedRoute(string key) =>
+        _routeCache.TryGetValue(key, out var cached)
+        && (cached.Route.Source != ResolvedRoute.Direct.Source || (DateTime.UtcNow - cached.At).TotalMinutes < RetryAfterMinutes(cached.Fails))
+            ? cached.Route : null;
+
+    private async Task ResolveAsync(Task release, string key, FlightEnds e, AirwayDatabase airways, CancellationToken ct)
+    {
+        await release.ConfigureAwait(false);
+        try
+        {
+            var route = await FlightPlanBuilder.ResolveRouteAsync(e, airways, Nav, Vatsim, _log, ct).ConfigureAwait(false);
+            var fails = route.Source != ResolvedRoute.Direct.Source ? 0 : _routeCache.TryGetValue(key, out var before) ? before.Fails + 1 : 1;
+            _routeCache[key] = (route, DateTime.UtcNow, fails);
+            _log(Tr.F("Ruta {0} ({1}): {2}", key, Tr.T(route.Source), route.Text));
+        }
+        catch (OperationCanceledException)
+        {
+            // Se cerró la app o se detuvo el tráfico: queda sin ruta.
+        }
+        finally
+        {
+            _resolving.TryRemove(key, out _);
+        }
+    }
+
+    // Rutas que se están buscando.
+    private readonly ConcurrentDictionary<string, Task> _resolving = new(StringComparer.Ordinal);
+
+    /// <summary>Cuántas rutas se buscan a la vez (el simulador da ~42 fijos por segundo en total).</summary>
+    public const int RouteLanes = 4;
+
+    /// <summary>De esas, cuántas pueden ser de estacionados y vuelos de paso (las demás quedan para las llegadas).</summary>
+    public const int OtherRouteLanes = 2;
+
+    /// <summary>Lo que se espera (ms) una ruta que puede estar lista al momento.</summary>
+    public const int RouteGraceMs = 250;
 
     /// <summary>
     /// ¿Están leídos los procedimientos de ese aeropuerto? Si no, se pide leerlos y el vuelo espera a otra vuelta. Sin lector
@@ -892,23 +1088,26 @@ public sealed class TrafficDirector
     /// mediano y pesado). Ocupado si se toca con un puesto ocupado, reservado o con un estacionado (prueba de Marco,
     /// 2026-11-01: llegadas en puestos ya ocupados).
     /// </summary>
-    private bool StandFree(AirportData airport, int index, DirectorContext ctx, int ignoreReservedFor = -1)
+    private bool StandFree(AirportData airport, int index, DirectorContext ctx, int ignoreReservedFor = -1, double halfWidthM = 0)
     {
         var p = airport.Parkings[index];
-        bool Touches(GeoPoint other, double radius) => GeoMath.DistanceM(p.Position, other) < p.RadiusM + radius - 2;
+        var mine = Math.Max(p.RadiusM, halfWidthM);
+        bool Touches(GeoPoint other, double radius) => GeoMath.DistanceM(p.Position, other) < mine + radius - 2;
+        double Radius(int stand) => Math.Max(airport.Parkings[stand].RadiusM, _wideAt.GetValueOrDefault(stand));
         foreach (var q in ctx.Parked)
         {
-            if (Touches(q.Position, q.Aircraft.Parking.RadiusM))
+            if (Touches(q.Position, q.Aircraft.HalfWidthM)
+                || q.Aircraft.BackM > 0 && Touches(q.Aircraft.Parking.Position, q.Aircraft.HalfWidthM))
                 return false;
         }
         foreach (var b in ctx.BusyStands)
         {
-            if (b == index || Touches(airport.Parkings[b].Position, airport.Parkings[b].RadiusM))
+            if (b == index || Touches(airport.Parkings[b].Position, Radius(b)))
                 return false;
         }
         foreach (var r in _reservedStands.Keys)
         {
-            if (r != ignoreReservedFor && (r == index || Touches(airport.Parkings[r].Position, airport.Parkings[r].RadiusM)))
+            if (r != ignoreReservedFor && (r == index || Touches(airport.Parkings[r].Position, Radius(r))))
                 return false;
         }
         return true;
@@ -916,20 +1115,80 @@ public sealed class TrafficDirector
 
     private DirectorContext? _lastContext;
 
+    // Puertas chicas en los datos con un fuselaje ancho (ADR-167): su media envergadura, para no dar las vecinas.
+    private readonly ConcurrentDictionary<int, double> _wideAt = new();
+
+    /// <summary>Anota (o borra) que el avión que va a ese puesto es más ancho que él.</summary>
+    private void NoteWide(AirportData airport, int stand, AircraftModel model)
+    {
+        var half = _matcher.WingspanFor(model) / 2;
+        if (ParkedFleetPlanner.Gate(airport.Parkings[stand]) && !ParkedFleetPlanner.Fits(airport.Parkings[stand], half))
+            _wideAt[stand] = WideStands.HalfSpanFor(model, 2 * half) + WideStands.WingMarginM;
+        else
+            _wideAt.TryRemove(stand, out _);
+    }
+
+    /// <summary>¿Tapa ese puesto un fuselaje ancho que viene a una puerta vecina? (para el puesto del piloto).</summary>
+    public bool BlockedByWide(AirportData airport, int stand)
+    {
+        foreach (var (s, half) in _wideAt)
+        {
+            if (s != stand && _reservedStands.ContainsKey(s) && s < airport.Parkings.Count
+                && GeoMath.DistanceM(airport.Parkings[s].Position, airport.Parkings[stand].Position) < half + airport.Parkings[stand].RadiusM)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Una puerta chica en los datos donde quepa el fuselaje ancho (ADR-167), con las vecinas libres: la de salida más holgada.
+    /// -1 si no hay, si ya hay bastantes así o si tiene puertas de su tamaño.
+    /// </summary>
+    private int PickWideGate(DirectorContext ctx, AirportData airport, AircraftModel model, string airline, double halfSpan)
+    {
+        if (ctx.Graph is not { } graph || WideStands.For(airport, graph) is not { Max: > 0 } wide)
+            return -1;
+        var now = ctx.Parked.Count(q => q.Aircraft.WideHalfSpanM > 0) + _wideAt.Keys.Count(_reservedStands.ContainsKey);
+        if (now >= wide.Max)
+            return -1;
+        var best = -1;
+        var bestScore = double.MinValue;
+        foreach (var i in wide.Candidates)
+        {
+            var p = airport.Parkings[i];
+            if (wide.BackFor(i, model, halfSpan) is null || GeoMath.DistanceM(p.Position, ctx.Pilot) < ParkedFleetPlanner.UserClearanceM + halfSpan + 20
+                || !StandFree(airport, i, ctx, halfWidthM: halfSpan + WideStands.WingMarginM))
+                continue;
+            var score = -ParkedFleetPlanner.AirlinePenalty(p, airline) + Math.Min(60, wide.ExitHalfM(i)) + _rng.NextDouble() * 20;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = i;
+            }
+        }
+        return best;
+    }
+
     private int PickStand(DirectorContext ctx, AirportData airport, AircraftModel model, string airline)
     {
         var halfSpan = _matcher.WingspanFor(model) / 2;
         var cargo = ModelMatcher.IsCargo(model);
         // Primero puertas y plataformas de aerolínea; si no queda ninguna, un puesto remoto de respaldo con más holgura
         // (ADR-089: en SCIE, 4 puertas, una llegada se quedó sin puesto y pasó de largo sobre el aeropuerto).
-        for (var pass = 0; pass < 2; pass++)
+        // Un fuselaje ancho de pasajeros: su puerta; si los datos no tienen, una donde quepa de verdad, antes que una plataforma
+        // de carga (ADR-167).
+        var widePax = !cargo && TypeReach.Wide(model);
+        for (var pass = widePax ? -1 : 0; pass < 2; pass++)
         {
+            if (pass == 0 && widePax && PickWideGate(ctx, airport, model, airline, WideStands.HalfSpanFor(model, 2 * halfSpan)) is >= 0 and var gate)
+                return gate;
             var best = -1;
             var bestScore = double.MaxValue;
             for (var i = 0; i < airport.Parkings.Count; i++)
             {
                 var p = airport.Parkings[i];
-                var ok = pass == 0
+                var ok = pass < 0 ? ParkedFleetPlanner.Gate(p) && ParkedFleetPlanner.Fits(p, halfSpan)
+                    : pass == 0
                     ? (ParkedFleetPlanner.Gate(p) || p.Type is ParkingType.RampGaLarge or ParkingType.RampGaExtra or ParkingType.RampCargo)
                       && ParkedFleetPlanner.Fits(p, halfSpan)
                     : ParkedFleetPlanner.RemoteStand(p) && ParkedFleetPlanner.Fits(p, halfSpan, ParkedFleetPlanner.RemoteToleranceM);
@@ -939,7 +1198,7 @@ public sealed class TrafficDirector
                     continue;
                 // Preferir su aerolínea, su clase (carga o pasajeros) y el puesto más justo (los grandes quedan para los
                 // grandes); algo de azar.
-                var score = (p.Airlines.Contains(airline) ? 0 : 50) + ParkedFleetPlanner.KindPenalty(p, cargo)
+                var score = ParkedFleetPlanner.AirlinePenalty(p, airline) + ParkedFleetPlanner.KindPenalty(p, cargo)
                     + Math.Abs(p.RadiusM - halfSpan) + _rng.NextDouble() * 10;
                 if (score < bestScore)
                 {
@@ -971,7 +1230,7 @@ public sealed class TrafficDirector
             // La decoración (aviación general, remotos "de noche") no sale nunca (ADR-109).
             if (p.Aircraft.Decor || _schedule.ContainsKey(p.ObjectId))
                 continue;
-            var leg = PickDepartureLeg(legs, p.Aircraft.Airline, p.Aircraft.TailNumber, airport.Icao, returnTo: null);
+            var leg = PickDepartureLeg(legs, p.Aircraft.Airline, p.Aircraft.TailNumber, airport.Icao, returnTo: null, p.Aircraft.Match.Model);
             if (leg is null)
                 continue;
             // El próximo hueco libre, desde unos minutos adelante (los estacionados al iniciar "embarcan").
@@ -1048,17 +1307,28 @@ public sealed class TrafficDirector
     /// Un tramo de salida libre para esa aerolínea: si <paramref name="returnTo"/> viene, de preferencia el de vuelta a ese
     /// aeropuerto. Sin ruta de su aerolínea en la base, su indicativo y un destino real del aeropuerto.
     /// </summary>
-    private WorldLeg? PickDepartureLeg(IReadOnlyList<WorldLeg> legs, string airline, string fallbackCallsign, string origin, string? returnTo)
+    private WorldLeg? PickDepartureLeg(IReadOnlyList<WorldLeg> legs, string airline, string fallbackCallsign, string origin, string? returnTo,
+        AircraftModel model)
     {
         var taken = new HashSet<string>(_schedule.Values.Select(v => v.Callsign), StringComparer.Ordinal);
-        var own = legs.Where(l => l.Airline == airline && !_active.ContainsKey(l.Callsign) && !taken.Contains(l.Callsign)).ToList();
+        var own = legs.Where(l => l.Airline == airline && !_active.ContainsKey(l.Callsign) && !taken.Contains(l.Callsign)
+            && InReach(l, model)).ToList();
         if (returnTo is not null && own.Where(l => l.Destination == returnTo).ToList() is { Count: > 0 } back)
             return back[_rng.Next(back.Count)];
+        // Con más peso los destinos a los que ese tipo se ha visto volar (ADR-168).
         if (own.Count > 0)
-            return own[_rng.Next(own.Count)];
+            return Vatsim is not { } seen ? own[_rng.Next(own.Count)]
+                : own.MinBy(l => -Math.Log(1 - _rng.NextDouble()) / seen.TypeWeight(l.Airline, l.Origin, l.Destination, model.IcaoType));
         if (legs.Count == 0)
             return null;
+        // Ya usados todos sus indicativos: otro vuelo a uno de sus destinos de verdad (ADR-167; antes, a cualquier destino del
+        // aeropuerto, aunque esa aerolínea no volara ahí).
+        var known = legs.Where(l => l.Airline == airline && InReach(l, model)).ToList();
+        if (known.Count > 0)
+            return new WorldLeg(fallbackCallsign, airline, origin, returnTo ?? known[_rng.Next(known.Count)].Destination);
         var any = legs[_rng.Next(legs.Count)];
+        for (var i = 0; i < 40 && !InReach(any, model); i++)
+            any = legs[_rng.Next(legs.Count)];
         return new WorldLeg(fallbackCallsign, airline, origin, returnTo ?? any.Destination);
     }
 
@@ -1082,7 +1352,9 @@ public sealed class TrafficDirector
             // Su plan completo ya está armado desde que tuvo hora (si no, se arma ahora).
             if (!_parkedPlans.TryGetValue(p.ObjectId, out var pp) || pp.Callsign != leg.Callsign)
             {
-                await PlanOneAsync(p, leg, airport, ctx, ct).ConfigureAwait(false);
+                // Su ruta todavía se está buscando: sale en una vuelta siguiente.
+                if (!await PlanOneAsync(p, leg, airport, ctx, ct).ConfigureAwait(false))
+                    continue;
                 _parkedPlans.TryGetValue(p.ObjectId, out pp);
             }
             _active[leg.Callsign] = new FlightInfo(leg, p.Aircraft.Match, Window: false, pp?.Route, pp?.Plan, pp?.Runway);
@@ -1146,9 +1418,10 @@ public sealed class TrafficDirector
     private async Task PlanParkedAsync(DirectorContext ctx, AirportData airport, CancellationToken ct)
     {
         var budget = System.Diagnostics.Stopwatch.StartNew();
-        foreach (var p in ctx.Parked)
+        // Los que salen antes, primero.
+        foreach (var p in ctx.Parked.OrderBy(p => _schedule.TryGetValue(p.ObjectId, out var s) ? s.Std : DateTime.MaxValue))
         {
-            if (budget.Elapsed.TotalSeconds > 15)
+            if (budget.Elapsed.TotalSeconds > 5)
                 return;
             if (!_scheduledLegs.TryGetValue(p.ObjectId, out var leg))
                 continue;
@@ -1162,18 +1435,23 @@ public sealed class TrafficDirector
         }
     }
 
-    private async Task PlanOneAsync(InjectedParked p, WorldLeg leg, AirportData airport, DirectorContext ctx, CancellationToken ct)
+    /// <summary>false si su ruta todavía se está buscando.</summary>
+    private async Task<bool> PlanOneAsync(InjectedParked p, WorldLeg leg, AirportData airport, DirectorContext ctx, CancellationToken ct)
     {
         if (_airports.Find(leg.Destination) is not { } dw || ctx.ActiveRunway is not { } runway)
-            return;
+            return true;
         var category = AircraftPerformance.For(p.Aircraft.Match.Model).Category;
         var origin = new WorldAirport(airport.Icao, airport.Reference, airport.ElevationFt);
         var ends = EndsFor(leg, origin, dw, category, ctx, runway);
-        var route = await RouteForAsync(ends, ct).ConfigureAwait(false);
+        if (await RouteIfReadyAsync(ends, ct).ConfigureAwait(false) is not { } route)
+            return false;
         var plan = FlightPlanBuilder.Assemble(ends, route, category);
+        var same = _parkedPlans.TryGetValue(p.ObjectId, out var old) && old.Callsign == leg.Callsign && old.Runway == runway
+            && old.Plan.Issues.SequenceEqual(plan.Issues);
         _parkedPlans[p.ObjectId] = new ParkedPlan(leg.Callsign, route, plan, runway, DateTime.UtcNow);
-        if (plan.Issues.Count > 0)
+        if (plan.Issues.Count > 0 && !same)
             _log(Tr.F("{0}: plan con avisos: {1}.", leg.Callsign, string.Join("; ", plan.Issues)));
+        return true;
     }
 
     /// <summary>
@@ -1203,7 +1481,7 @@ public sealed class TrafficDirector
             : FlightPlanBuilder.Assemble(ends, info.Route ?? ResolvedRoute.Direct, d.Category);
         _active[d.Callsign] = info with { Plan = plan, PlanRunway = runway };
         var model = info.Match?.Model ?? _matcher.Match(info.Leg.Airline, d.TypeDesignator, d.Callsign)?.Model;
-        _log(Tr.F("{0}: en el aire hacia {1}: {2} → {3} [{4}].", d.Callsign, dest.Icao, plan.RouteText, plan.Approach ?? Tr.T("sin aproximación"), plan.Source));
+        _log(Tr.F("{0}: en el aire hacia {1}: {2} → {3} [{4}].", d.Callsign, dest.Icao, plan.RouteText, plan.Approach ?? Tr.T("sin aproximación"), Tr.T(plan.Source)));
         return AirborneAgent.FromDeparture(d, info.Leg.Airline, airport.Icao, dest.Icao, model, plan.Path, plan.CruiseFt, airport.ElevationFt,
             dest.ElevationFt, ends.Landing);
     }
@@ -1222,6 +1500,7 @@ public sealed class TrafficDirector
         {
             _reservedStands.TryRemove(f.StandIndex, out _);
             _reservedStands[other] = f.Callsign;
+            NoteWide(airport, other, model);
             _log(Tr.F("{0}: su puesto quedó ocupado; va a {1}.", f.Callsign, airport.Parkings[other].DisplayName));
             f.StandIndex = other;
         }
@@ -1245,7 +1524,8 @@ public sealed class TrafficDirector
         }
         var perf = AircraftPerformance.For(model);
         var agent = DepartureAgent.PlanArrival(f.ObjectId, f.Callsign, airport, graph, exit, f.StandIndex, f.Position, f.HeadingDeg,
-            f.SpeedKt, perf, model.EngineCount, model.NoseGearM, _matcher.WingspanFor(model), model.Wake);
+            f.SpeedKt, perf, model.EngineCount, model.NoseGearM, _matcher.WingspanFor(model), model.Wake,
+            WideBack(airport, graph, f.StandIndex, model).BackM);
         if (agent is not null)
         {
             agent.TypeDesignator = f.TypeDesignator;
@@ -1269,14 +1549,30 @@ public sealed class TrafficDirector
         // Escala: ~40 min un pasillo único, ~90 un fuselaje ancho (APROXIMADO); vuelve a su origen si la base lo tiene.
         var turnaround = match.Model.Wake is WakeCategory.Heavy or WakeCategory.Super ? 90 : 40;
         if (_routes?.DeparturesFrom(airport.Icao) is { Count: > 0 } legs
-            && PickDepartureLeg(legs, info.Leg.Airline, g.Callsign, airport.Icao, returnTo: info.Leg.Origin) is { } back)
+            && PickDepartureLeg(legs, info.Leg.Airline, g.Callsign, airport.Icao, returnTo: info.Leg.Origin, match.Model) is { } back)
         {
             _schedule[g.ObjectId] = new DepartureSchedule(back.Callsign, back.Destination, utcNow.AddMinutes(turnaround + _rng.Next(0, 15)));
             _scheduledLegs[g.ObjectId] = back;
         }
         var pose = g.Pose(1);
-        var parked = new ParkedAircraft(info.Leg.Airline, match.Model.IcaoType, g.Callsign, match, g.StandIndex, airport.Parkings[g.StandIndex]);
+        var (backM, halfM) = _lastContext?.Graph is { } graph ? WideBack(airport, graph, g.StandIndex, match.Model) : (0, 0);
+        var parked = new ParkedAircraft(info.Leg.Airline, match.Model.IcaoType, g.Callsign, match, g.StandIndex, airport.Parkings[g.StandIndex])
+        {
+            BackM = backM,
+            WideHalfSpanM = halfM,
+        };
         return new InjectedParked(g.ObjectId, parked, IsParkedAtc: false, pose.Position, pose.HeadingTrueDeg);
+    }
+
+    /// <summary>Cuánto más atrás se estaciona en esa puerta y su media envergadura, si es más ancho que ella (ADR-167); si no, 0.</summary>
+    private (double BackM, double HalfM) WideBack(AirportData airport, TaxiGraph graph, int stand, AircraftModel model)
+    {
+        var half = _matcher.WingspanFor(model) / 2;
+        if (ParkedFleetPlanner.Fits(airport.Parkings[stand], half))
+            return (0, 0);
+        half = WideStands.HalfSpanFor(model, 2 * half);
+        return ParkedFleetPlanner.Gate(airport.Parkings[stand])
+            && WideStands.For(airport, graph).BackFor(stand, model, half) is { } back ? (back, half) : (0, 0);
     }
 
     private void OnFlightFinished(AirborneAgent f)
@@ -1300,7 +1596,20 @@ public sealed class TrafficDirector
     {
         var budget = System.Diagnostics.Stopwatch.StartNew();
         var target = (int)Math.Round(Math.Clamp(ctx.Density, 0, 300) / 100.0 * 12);
-        for (var tries = 0; _window < target && tries < 40 && _otherLegs.Count > 0 && budget.Elapsed.TotalSeconds < 30; tries++)
+        // Primero los que esperaban su ruta (ADR-165).
+        for (var i = 0; i < _passingQueue.Count && _window < target; i++)
+        {
+            var (waiting, since) = _passingQueue[i];
+            var tried = LegResult.Discarded;
+            if (!_active.ContainsKey(waiting.Callsign) && _airports.Find(waiting.Origin) is { } from && _airports.Find(waiting.Destination) is { } to)
+                tried = await CreatePassingAsync(ctx, waiting, from, to, ct).ConfigureAwait(false);
+            if (tried == LegResult.Created)
+                Interlocked.Increment(ref _window);
+            if (tried != LegResult.Pending || (ctx.UtcNow - since).TotalMinutes > ArrivalQueueMinutes)
+                _passingQueue.RemoveAt(i--);
+        }
+        for (var tries = 0; _window < target && tries < 40 && _otherLegs.Count > 0 && _passingQueue.Count < OtherRouteLanes
+             && budget.Elapsed.TotalSeconds < 15; tries++)
         {
             // Se sortean tres y queda el que pasa más cerca: más tráfico cerca de ti, menos en el borde de la ventana.
             var leg = _otherLegs[_rng.Next(_otherLegs.Count)];
@@ -1321,23 +1630,30 @@ public sealed class TrafficDirector
             var originReady = AirportReady(pick.Origin);
             if (!AirportReady(pick.Destination) || !originReady)
                 continue;
-            if (await CreatePassingAsync(ctx, pick, o, dst, ct).ConfigureAwait(false))
+            var made = await CreatePassingAsync(ctx, pick, o, dst, ct).ConfigureAwait(false);
+            if (made == LegResult.Created)
                 Interlocked.Increment(ref _window);
+            else if (made == LegResult.Pending && !_passingQueue.Exists(q => q.Leg.Callsign == pick.Callsign))
+                _passingQueue.Add((pick, ctx.UtcNow));
         }
     }
+
+    // Vuelos de paso que esperan su ruta (solo en la vuelta del director).
+    private readonly List<(WorldLeg Leg, DateTime Since)> _passingQueue = [];
 
     /// <summary>
     /// Un vuelo de la zona que no es del aeropuerto cargado: su plan completo de origen a destino y el avión en un punto de
     /// ese plan dentro de la ventana y fuera de la vista del piloto, con la altitud que le toca (ascenso, crucero o descenso).
     /// </summary>
-    private async Task<bool> CreatePassingAsync(DirectorContext ctx, WorldLeg leg, WorldAirport origin, WorldAirport dest, CancellationToken ct)
+    private async Task<LegResult> CreatePassingAsync(DirectorContext ctx, WorldLeg leg, WorldAirport origin, WorldAirport dest, CancellationToken ct)
     {
-        var match = PickModel(leg.Airline, null, leg.Callsign);
+        var match = PickModel(leg, origin, dest, NeedsLivery("", _routes?.All));
         if (match is null)
-            return false;
+            return LegResult.Discarded;
         var category = AircraftPerformance.For(match.Model).Category;
         var ends = EndsFor(leg, origin, dest, category, ctx);
-        var route = await RouteForAsync(ends, ct).ConfigureAwait(false);
+        if (await RouteIfReadyAsync(ends, ct).ConfigureAwait(false) is not { } route)
+            return LegResult.Pending;
         var plan = FlightPlanBuilder.Assemble(ends, route, category);
         var length = plan.Path.LengthM;
         for (var k = 0; k < 12; k++)
@@ -1363,9 +1679,9 @@ public sealed class TrafficDirector
             _engine.AddFlight(f);
             _log($"{leg.Callsign}: {leg.Origin} → {leg.Destination} ({match.Model.IcaoType}; {plan.RouteText} → {plan.Approach ?? "-"} " +
                  Tr.F("[{0}]), a {1:0} NM de su origen.", Tr.T(plan.Source), along / Nm));
-            return true;
+            return LegResult.Created;
         }
-        return false;
+        return LegResult.NoRoom;
     }
 
     /// <summary>Lo más cerca que pasa del piloto la ortodrómica de <paramref name="a"/> a <paramref name="b"/> (NM), muestreada.</summary>
@@ -1382,12 +1698,70 @@ public sealed class TrafficDirector
     /// <summary>Tipos comunes por si la aerolínea no tiene liveries instaladas (el emparejador cae a uno genérico).</summary>
     private static readonly string[] CommonTypes = ["A320", "B738", "A20N", "B38M", "A321", "E190"];
 
-    private ModelMatch? PickModel(string airline, string? type, string key)
+    /// <summary>
+    /// Un avión para el tramo (ADR-166): de la aerolínea, de su clase (carga o pasajeros) y que lo alcance; en un tramo corto, un
+    /// fuselaje ancho solo a veces. null si la aerolínea no tiene ninguno que sirva, o no tiene librea y las demás sí.
+    /// </summary>
+    private ModelMatch? PickModel(WorldLeg leg, WorldAirport from, WorldAirport to, bool needsLivery, bool? isCargo = null,
+        IReadOnlySet<string>? used = null)
     {
-        if (type is { Length: >= 3 })
-            return _matcher.Match(airline, type, key);
-        var types = _matcher.TypesFor(airline);
-        var t = types.Count > 0 ? types[_rng.Next(types.Count)] : CommonTypes[_rng.Next(CommonTypes.Length)];
-        return _matcher.Match(airline, t, key);
+        var types = _matcher.TypesFor(leg.Airline);
+        if (types.Count == 0 || needsLivery && !_matcher.HasLivery(leg.Airline))
+        {
+            return needsLivery ? null : _matcher.Match(leg.Airline, CommonTypes[_rng.Next(CommonTypes.Length)], leg.Callsign);
+        }
+        var nm = GeoMath.DistanceM(from.Position, to.Position) / Nm;
+        var cargo = isCargo ?? _matcher.IsCargoAirline(leg.Airline);
+        var narrow = new List<ModelMatch>();
+        var wide = new List<ModelMatch>();
+        foreach (var t in types)
+        {
+            if (_matcher.MatchOwn(leg.Airline, t, leg.Callsign, cargo, used) is { } m && nm <= TypeReach.MaxNm(m.Model))
+                (TypeReach.Wide(m.Model) ? wide : narrow).Add(m);
+        }
+        if (nm < TypeReach.WideShortNm && narrow.Count > 0 && _rng.NextDouble() >= WideOnShortLeg)
+            wide.Clear();
+        // Con más peso los tipos que se han visto en esa ruta (ADR-168).
+        ModelMatch? best = null;
+        var bestKey = double.MaxValue;
+        foreach (var m in narrow.Concat(wide))
+        {
+            var key = -Math.Log(1 - _rng.NextDouble()) / (Vatsim?.TypeWeight(leg.Airline, leg.Origin, leg.Destination, m.Model.IcaoType) ?? 1);
+            if (key < bestKey)
+            {
+                bestKey = key;
+                best = m;
+            }
+        }
+        return best;
     }
+
+    /// <summary>Con qué frecuencia un tramo corto puede llevar un fuselaje ancho (si la aerolínea tiene otros aviones). APROXIMADO.</summary>
+    public const double WideOnShortLeg = 0.03;
+
+    // Por aeropuerto ("" = toda la zona): ¿hay suficientes vuelos de aerolíneas con librea para no usar las demás?
+    private readonly Dictionary<string, (int Legs, bool Needs)> _needsLivery = new(StringComparer.Ordinal);
+
+    private bool NeedsLivery(string icao, IEnumerable<WorldLeg>? legs)
+    {
+        var count = _routes?.LegCount ?? 0;
+        if (_needsLivery.TryGetValue(icao, out var known) && known.Legs == count)
+            return known.Needs;
+        var all = 0;
+        var painted = 0;
+        foreach (var l in legs ?? [])
+        {
+            all++;
+            if (_matcher.HasLivery(l.Airline))
+                painted++;
+        }
+        var needs = all > 0 && painted >= ParkedFleetPlanner.PaintedShare * all;
+        _needsLivery[icao] = (count, needs);
+        return needs;
+    }
+
+    /// <summary>¿El tramo está al alcance del modelo?</summary>
+    private bool InReach(WorldLeg leg, AircraftModel model) =>
+        _airports.Find(leg.Origin) is not { } o || _airports.Find(leg.Destination) is not { } d
+        || GeoMath.DistanceM(o.Position, d.Position) / Nm <= TypeReach.MaxNm(model);
 }

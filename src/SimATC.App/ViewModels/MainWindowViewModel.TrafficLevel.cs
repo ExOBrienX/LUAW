@@ -206,7 +206,9 @@ public sealed partial class MainWindowViewModel
                 progress: (i, n, p) => Dispatcher.UIThread.Post(() => ModalDetail(
                     Tr.F("Estacionando {0} de {1}: {2}{3} en {4}", i, n, (p.Airline.Length > 0 ? p.Airline + " " : ""), p.Type, Radar.RadarView.StandName(p.Parking))
                     + (p.Decor ? (p.Airline.Length > 0 ? Tr.T(" (remoto, no sale)") : Tr.T(" (aviación general)")) : "")
-                    + $" · {p.Match.Model.Title}", 60 + 28.0 * i / Math.Max(1, n))));
+                    + $" · {p.Match.Model.Title}", 60 + 28.0 * i / Math.Max(1, n))),
+                wide: _graph is { } wideGraph ? await Task.Run(() => WideStands.For(airport, wideGraph)) : null,
+                vatsim: _director?.Vatsim);
             ModalLine(Tr.F("{0} aviones estacionados.", created));
             RefreshTraffic();
             TrafficStatus = Tr.F("{0} aviones estacionados en {1}.", created, airport.Icao);

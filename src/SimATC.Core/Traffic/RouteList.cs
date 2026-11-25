@@ -18,7 +18,14 @@ public sealed record RouteAirline(
     IReadOnlyList<string> Types,
     IReadOnlyList<string> Destinations,
     IReadOnlyList<string> Seasonal,
-    IReadOnlyList<string>? Future = null);
+    IReadOnlyList<string>? Future = null)
+{
+    /// <summary>Largo (NM) de sus tramos desde el aeropuerto; vacío si no se conoce (ADR-166: el tipo tiene que alcanzar).</summary>
+    public IReadOnlyList<double> LegsNm { get; init; } = [];
+
+    /// <summary>Peso en el reparto; 0 = por sus destinos.</summary>
+    public double Weight { get; init; }
+}
 
 /// <summary>Contenido de <c>data/routes/{ICAO}.json</c> (formato documentado en REQUIREMENTS §9).</summary>
 public sealed record RouteList(

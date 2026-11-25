@@ -19,10 +19,13 @@ public sealed record ModelMatch(AircraftModel Model, MatchKind Kind);
 /// Elige el modelo y la livery para una aerolínea y un tipo OACI (RF-13, RF-14). Solo usa modelos que el
 /// simulador puede crear. Entre varios candidatos la elección es estable para la misma <c>variationKey</c>.
 /// </summary>
-public sealed class ModelMatcher
+public sealed partial class ModelMatcher
 {
     private readonly Dictionary<string, AircraftModel> _byTitle;
     private readonly Dictionary<(string Airline, string Type), List<AircraftModel>> _byAirlineType = [];
+    // Los de relleno (ver IsPlaceholder): solo para aerolíneas que no tienen otra cosa.
+    private readonly Dictionary<(string Airline, string Type), List<AircraftModel>> _placeholders = [];
+    private readonly HashSet<string> _withLivery = new(StringComparer.Ordinal);
     private readonly Dictionary<(string Airline, string Type), List<string>> _rules = [];
     private readonly Dictionary<string, List<AircraftModel>> _genericByType = new(StringComparer.Ordinal);
     private readonly List<AircraftModel> _all;
@@ -30,7 +33,7 @@ public sealed class ModelMatcher
 
     public ModelMatcher(IEnumerable<AircraftModel> spawnableModels, IEnumerable<FsltlRule> rules)
     {
-        _all = spawnableModels.ToList();
+        _all = spawnableModels.Where(m => !IsFictional(m)).ToList();
         _byTitle = new Dictionary<string, AircraftModel>(StringComparer.OrdinalIgnoreCase);
         foreach (var m in _all)
         {
@@ -39,8 +42,13 @@ public sealed class ModelMatcher
                 _maxSpanByType[m.IcaoType] = m.WingspanM;
             if (m.IsGeneric)
                 Add(_genericByType, m.IcaoType, m);
+            else if (IsPlaceholder(m))
+                Add(_placeholders, (m.IcaoAirline, m.IcaoType), m);
             else
+            {
                 Add(_byAirlineType, (m.IcaoAirline, m.IcaoType), m);
+                _withLivery.Add(m.IcaoAirline);
+            }
         }
         foreach (var r in rules)
         {
@@ -53,12 +61,29 @@ public sealed class ModelMatcher
 
     public int ModelCount => _all.Count;
 
+    /// <summary>Librea inventada (aerolínea virtual): nunca se usa (ADR-166).</summary>
+    public static bool IsFictional(AircraftModel m) => m.Title.Contains("Fictional", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Librea que no es la de la aerolínea de hoy (ADR-166): "STUB" (el avión blanco genérico con el nombre de la aerolínea,
+    /// KMIA 2026-11-25) o "Historical" (la pintura de otra época o de una aerolínea que ya no existe).
+    /// </summary>
+    public static bool IsPlaceholder(AircraftModel m) =>
+        m.Title.EndsWith("STUB", StringComparison.OrdinalIgnoreCase) || m.Title.Contains("Historical", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>¿Hay instalada alguna librea actual de la aerolínea?</summary>
+    public bool HasLivery(string airline) => _withLivery.Contains(airline.Trim().ToUpperInvariant());
+
+    /// <summary>Los modelos propios de una aerolínea: los de su librea o, si no tiene ninguna, los de relleno.</summary>
+    private Dictionary<(string Airline, string Type), List<AircraftModel>> OwnTable(string airline) =>
+        _withLivery.Contains(airline) ? _byAirlineType : _placeholders;
+
     /// <summary>Todos los títulos de aviones que el simulador puede crear (incluidos los suyos), para la decoración (ADR-109).</summary>
     public IReadOnlySet<string> SimTitles { get; set; } = new HashSet<string>();
 
     /// <summary>Modelos de carga con livery de aerolínea (para las plataformas de carga sin aerolíneas de carga en las rutas).</summary>
     public IReadOnlyList<AircraftModel> CargoModels() =>
-        [.. _all.Where(m => !m.IsGeneric && m.IcaoAirline.Length > 0 && IsCargo(m))];
+        [.. _all.Where(m => !m.IsGeneric && m.IcaoAirline.Length > 0 && IsCargo(m) && !IsPlaceholder(m))];
 
     /// <summary>Modelo de carga: puesto de carga en su cfg, o "Cargo"/"Freight" en el título.</summary>
     public static bool IsCargo(AircraftModel m) =>
@@ -73,7 +98,7 @@ public sealed class ModelMatcher
     {
         airline = airline.Trim().ToUpperInvariant();
         var any = false;
-        foreach (var (key, models) in _byAirlineType)
+        foreach (var (key, models) in OwnTable(airline))
         {
             if (key.Airline != airline)
                 continue;
@@ -88,6 +113,84 @@ public sealed class ModelMatcher
     }
 
     /// <summary>
+    /// Un modelo propio de la aerolínea, de ese tipo y de esa clase (carga o pasajeros), o null: no cae a uno genérico ni a un
+    /// carguero para un vuelo de pasajeros (ADR-166).
+    /// </summary>
+    /// <param name="used">Liveries ya puestas: una especial o con matrícula es un solo avión y no se repite (ADR-171).</param>
+    public ModelMatch? MatchOwn(string airline, string type, string variationKey, bool cargo, IReadOnlySet<string>? used = null)
+    {
+        airline = airline.Trim().ToUpperInvariant();
+        if (!OwnTable(airline).TryGetValue((airline, type.Trim().ToUpperInvariant()), out var own))
+            return null;
+        return PickLivery(own.Where(m => IsCargo(m) == cargo).ToList(), variationKey, used) is { } m
+            ? new ModelMatch(m, MatchKind.AirlineLivery) : null;
+    }
+
+    /// <summary>¿Tiene la aerolínea modelos de carga y de pasajeros?</summary>
+    public bool IsMixed(string airline)
+    {
+        airline = airline.Trim().ToUpperInvariant();
+        var (cargo, pax) = (false, false);
+        foreach (var (key, models) in OwnTable(airline))
+        {
+            if (key.Airline != airline)
+                continue;
+            foreach (var m in models)
+            {
+                if (IsCargo(m))
+                    cargo = true;
+                else
+                    pax = true;
+            }
+        }
+        return cargo && pax;
+    }
+
+    /// <summary>Peso de la livery normal de la aerolínea, de una con matrícula y de una especial (ADR-171). APROXIMADO.</summary>
+    private const double PlainWeight = 6, TailWeight = 1, SpecialWeight = 0.3;
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"(^|[_ ])(N\d{1,5}[A-Z]{0,2}|[A-Z]{1,2}-[A-Z0-9]{3,5}|\d{3})$")]
+    private static partial System.Text.RegularExpressions.Regex TailName();
+
+    /// <summary>
+    /// Entre las liveries de una aerolínea y tipo: la normal (la de nombre más corto de cada paquete) es la de casi toda la flota;
+    /// las que llevan matrícula y las especiales (retro, aniversario) son un avión cada una. En KMIA, 10 de los 16 B738 de
+    /// American salían con pintura retro.
+    /// </summary>
+    private static AircraftModel? PickLivery(List<AircraftModel> candidates, string variationKey, IReadOnlySet<string>? used)
+    {
+        if (candidates.Count <= 1)
+            return candidates.Count == 0 ? null : candidates[0];
+        candidates.Sort((x, y) => string.CompareOrdinal(x.Title, y.Title));
+        var total = 0.0;
+        var weights = new double[candidates.Count];
+        for (var i = 0; i < weights.Length; i++)
+        {
+            var m = candidates[i];
+            var tail = TailName().IsMatch(m.Title);
+            var plain = !tail;
+            for (var j = 0; j < candidates.Count && plain; j++)
+            {
+                var o = candidates[j];
+                plain = j == i || o.Source != m.Source || TailName().IsMatch(o.Title) || o.Title.Length > m.Title.Length
+                    || o.Title.Length == m.Title.Length && j > i;
+            }
+            weights[i] = plain ? PlainWeight : used?.Contains(m.Title) == true ? 0 : tail ? TailWeight : SpecialWeight;
+            total += weights[i];
+        }
+        if (total <= 0)
+            return Pick(candidates, variationKey);
+        // Estable para la misma clave.
+        var roll = StableHash(variationKey) / (uint.MaxValue + 1.0) * total;
+        for (var i = 0; i < weights.Length; i++)
+        {
+            if ((roll -= weights[i]) < 0)
+                return candidates[i];
+        }
+        return candidates[^1];
+    }
+
+    /// <summary>
     /// Envergadura para asignar puestos: el mayor wing_span instalado para el tipo del modelo. Los cfg de AIG traen
     /// valores reducidos (A320neo: 22 m) y MSFS usa ese campo para sus propios puestos (ADR-016); 0 si no hay dato.
     /// </summary>
@@ -98,7 +201,7 @@ public sealed class ModelMatcher
     public IReadOnlyList<string> TypesFor(string airline)
     {
         airline = airline.Trim().ToUpperInvariant();
-        return _byAirlineType.Keys.Where(k => k.Airline == airline).Select(k => k.Type).Distinct().Order().ToList();
+        return OwnTable(airline).Keys.Where(k => k.Airline == airline).Select(k => k.Type).Distinct().Order().ToList();
     }
 
     /// <param name="airline">Código OACI de la aerolínea (LAN, SKU…).</param>
@@ -114,6 +217,8 @@ public sealed class ModelMatcher
         var airlineCandidates = new List<AircraftModel>();
         if (_byAirlineType.TryGetValue((airline, type), out var direct))
             airlineCandidates.AddRange(direct);
+        if (airlineCandidates.Count == 0 && _placeholders.TryGetValue((airline, type), out var stubs) && !HasLivery(airline))
+            airlineCandidates.AddRange(stubs);
         AddRuleModels(airline, type, airlineCandidates, requireAirline: airline);
         if (Pick(airlineCandidates, variationKey) is { } a)
             return new ModelMatch(a, MatchKind.AirlineLivery);

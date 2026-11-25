@@ -232,6 +232,32 @@ public static class FlightPlanner
     }
 
     /// <summary>
+    /// La misma pista solo con las salidas desde las que se llega al puesto sin dar media vuelta en una calle (ADR-171, KMIA
+    /// 2026-11-25: AAL1335 salió por una calle que curva al este y volvió al oeste por la misma). Si ninguna sirve después del
+    /// recorrido mínimo, queda igual.
+    /// </summary>
+    public static LandingRunway BestExit(TaxiGraph graph, LandingRunway landing, int stand, double minRollM)
+    {
+        if (landing.ExitList is not { Count: > 1 } list || stand < 0)
+            return landing;
+        var good = new List<RunwayExit>(list.Count);
+        foreach (var x in list)
+        {
+            var e = graph.RunwayEntries[x.EntryIndex];
+            if (graph.FindRoute(e.EntryNode, graph.ParkingNode(stand)) is { } r && !graph.HasUTurn(r, e.RunwayNode))
+                good.Add(x);
+        }
+        if (good.Count == list.Count)
+            return landing;
+        foreach (var x in good)
+        {
+            if (x.TurnStartM >= minRollM)
+                return (landing with { ExitList = good }).WithExit(x);
+        }
+        return landing;
+    }
+
+    /// <summary>
     /// Describe una salida de pista para el que aterriza con rumbo <paramref name="landingHeadingDeg"/>: el ángulo entre la
     /// pista y la calle (del nodo del eje a la entrada), el lado y la velocidad a la que se toma (salida rápida ≤ 50°: 30 kt;
     /// hasta 75°: 20 kt; a 90°: 15 kt). Las que vuelven hacia atrás (más de 100°) no sirven para salir. El viraje empieza

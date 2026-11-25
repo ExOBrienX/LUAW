@@ -181,6 +181,27 @@ public class TrafficLevelTests
         Assert.Contains(plan, p => p.Airline is "BCS" or "FDX");
     }
 
+    /// <summary>ADR-170 (escenario nuevo de KMIA): las puertas alcanzaban para todos y quedaban 2 cargueros.</summary>
+    [Fact]
+    public void Cargo_ramps_keep_their_part_even_when_the_gates_are_enough()
+    {
+        var matcher = CargoMatcher();
+        var preset = TrafficPreset.For(TrafficLevel.Custom, 200);
+        var full = ParkedFleetPlanner.PlanForLevel(Scel.Value, WithUnflaggedCargo(), matcher, matcher.TypesFor, preset, 6, null, 1);
+        var few = ParkedFleetPlanner.PlanForLevel(Scel.Value, WithUnflaggedCargo(), matcher, matcher.TypesFor, preset with { MaxAirline = 15 }, 6, null, 1);
+        Assert.InRange(few.Count, 10, 15);
+        Assert.Contains(few, p => p.Airline is "BCS" or "FDX");
+        Assert.True(full.Count > few.Count);
+    }
+
+    [Fact]
+    public void Arrivals_avoid_stands_of_other_airlines()
+    {
+        Parking P(params string[] airlines) => new(ParkingType.GateHeavy, default, default, 1, new(0, 0), 0, 40, airlines);
+        Assert.True(ParkedFleetPlanner.AirlinePenalty(P("BAW", "QTR"), "QTR") < ParkedFleetPlanner.AirlinePenalty(P(), "QTR"));
+        Assert.True(ParkedFleetPlanner.AirlinePenalty(P(), "QTR") < ParkedFleetPlanner.AirlinePenalty(P("AAL"), "QTR"));
+    }
+
     [Fact]
     public void Arrivals_prefer_a_stand_of_their_kind()
     {

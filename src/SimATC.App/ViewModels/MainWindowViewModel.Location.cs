@@ -174,7 +174,14 @@ public sealed partial class MainWindowViewModel
         {
             if (p.Aircraft.ParkingIndex == stand)
                 return true;
+            // Tapado por un fuselaje ancho en la puerta vecina (ADR-167).
+            if (p.Aircraft.WideHalfSpanM > 0 && Airport is { } a && stand < a.Parkings.Count
+                && Core.Geo.GeoMath.DistanceM(p.Aircraft.Parking.Position, a.Parkings[stand].Position)
+                    < p.Aircraft.WideHalfSpanM + a.Parkings[stand].RadiusM + Core.Traffic.WideStands.WingMarginM)
+                return true;
         }
+        if (Airport is { } near && stand < near.Parkings.Count && _director?.BlockedByWide(near, stand) == true)
+            return true;
         foreach (var f in _flights.Values)
         {
             if (f.Aircraft.ParkingIndex == stand)
@@ -213,7 +220,7 @@ public sealed partial class MainWindowViewModel
             _icao = icao;
             OnPropertyChanged(nameof(AirportText));
             Stage(Tr.F("Preparando {0} (llegas en vuelo)…", icao), 20);
-            var (airport, fromCache) = await _airports.GetAsync(icao, false, CancellationToken.None);
+            var (airport, fromCache) = await _airports.GetFreshAsync(icao, CancellationToken.None);
             SetAirport(airport, fromCache);
             Change(_settings with { LastAirport = icao });
             _routes ??= Core.Traffic.RouteList.Load(Core.Traffic.RouteList.PathFor(_dataDir, icao));

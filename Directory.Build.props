@@ -9,7 +9,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <!-- Versión de la app (la muestra la interfaz y la usa el script de empaquetado, tools/package.ps1). -->
-    <VersionPrefix>0.9.3</VersionPrefix>
+    <VersionPrefix>0.9.4</VersionPrefix>
     <VersionSuffix>beta.1</VersionSuffix>
     <Product>LUAW</Product>
     <Authors>ExOBrienX</Authors>

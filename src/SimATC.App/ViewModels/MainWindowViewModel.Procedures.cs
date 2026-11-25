@@ -201,7 +201,7 @@ public sealed partial class MainWindowViewModel
     {
         if (Airport is { } loaded && loaded.Icao == icao)
             return loaded;
-        return (await _airports.GetAsync(icao, false, CancellationToken.None)).Airport;
+        return (await _airports.GetFreshAsync(icao, CancellationToken.None)).Airport;
     }
 
     /// <summary>Opciones: las evaluadas (la recomendada primero) y al final el resto, por si el piloto quiere otra.</summary>

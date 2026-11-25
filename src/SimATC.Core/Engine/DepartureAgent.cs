@@ -1092,7 +1092,7 @@ public sealed class DepartureAgent
 
     public static DepartureAgent? PlanArrival(uint objectId, string callsign, AirportData airport, TaxiGraph graph, RunwayEntry exit,
         int standIndex, GeoPoint start, double startHeadingDeg, double startSpeedKt, AircraftPerformance perf, int engineCount,
-        double noseGearM = 0, double wingspanM = 0, WakeCategory wake = WakeCategory.Medium)
+        double noseGearM = 0, double wingspanM = 0, WakeCategory wake = WakeCategory.Medium, double standBackM = 0)
     {
         var standNode = graph.ParkingNode(standIndex);
         var route = graph.FindRoute(exit.EntryNode, standNode);
@@ -1107,8 +1107,15 @@ public sealed class DepartureAgent
         corners.AddRange(ExitArc(from, startHeadingDeg, runwayNode, entryNode, startSpeedKt));
         foreach (var n in route.Nodes)
             corners.Add(graph.Position(n));
-        var taxi = Polyline.Smooth(corners, perf.Ground.CornerRadiusM);
         var stand = airport.Parkings[standIndex];
+        // Un fuselaje ancho en una puerta más chica se detiene antes (ADR-167).
+        if (standBackM > 0)
+        {
+            while (corners.Count > 2 && LocalPoint.Distance(corners[^2], corners[^1]) < standBackM + 2)
+                corners.RemoveAt(corners.Count - 2);
+            corners[^1] = Polyline.Offset(corners[^1], stand.HeadingTrueDeg + 180, standBackM);
+        }
+        var taxi = Polyline.Smooth(corners, perf.Ground.CornerRadiusM);
         var runway = airport.Runways[exit.RunwayIndex];
         var a = new DepartureAgent(objectId, callsign, perf, DepartureTimings.Default, graph.Projection,
             new Polyline([from, Polyline.Offset(from, startHeadingDeg, 1)]), taxi, taxi.Length, startHeadingDeg, runway.ElevationFt,

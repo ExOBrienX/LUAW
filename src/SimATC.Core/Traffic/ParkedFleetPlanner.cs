@@ -15,6 +15,18 @@ public sealed record ParkedAircraft(
 {
     /// <summary>Solo decoración (aviación general o "de noche" en plataforma remota): nunca sale (ADR-109).</summary>
     public bool Decor { get; init; }
+
+    /// <summary>Fuselaje ancho en una puerta más chica en los datos (ADR-167): cuánto más atrás queda (m).</summary>
+    public double BackM { get; init; }
+
+    /// <summary>Y su media envergadura (m), que deja sin usar las vecinas; 0 = cabe en su puesto.</summary>
+    public double WideHalfSpanM { get; init; }
+
+    /// <summary>Lo que ocupa a los lados (m).</summary>
+    public double HalfWidthM => Math.Max(Parking.RadiusM, WideHalfSpanM);
+
+    /// <summary>Dónde queda estacionado.</summary>
+    public GeoPoint Position => BackM > 0 ? GeoMath.Destination(Parking.Position, Parking.HeadingTrueDeg + 180, BackM) : Parking.Position;
 }
 
 /// <summary>
@@ -52,6 +64,13 @@ public static partial class ParkedFleetPlanner
     public static bool RemoteStand(Parking p) => p.Type is ParkingType.RampGaMedium or ParkingType.RampGaLarge or ParkingType.RampGaExtra
         or ParkingType.RampCargo or ParkingType.RampMilCargo;
 
+    /// <summary>
+    /// Castigo por la aerolínea (m de puntaje): ninguno en un puesto suyo, más en uno que los datos dan a otras que en uno sin
+    /// lista (ADR-170).
+    /// </summary>
+    public static double AirlinePenalty(Parking p, string? airline) =>
+        p.Airlines.Count == 0 ? 50 : airline is not null && p.Airlines.Contains(airline, StringComparer.OrdinalIgnoreCase) ? 0 : 80;
+
     /// <summary>¿Puerta de pasajeros?</summary>
     public static bool Gate(Parking p) => p.Type is ParkingType.GateSmall or ParkingType.GateMedium or ParkingType.GateHeavy or ParkingType.GateExtra;
 
@@ -76,7 +95,7 @@ public static partial class ParkedFleetPlanner
                 var ok = pass == 0 ? Gate(p) && Fits(p, wingspanM / 2) : RemoteStand(p) && Fits(p, wingspanM / 2, RemoteToleranceM);
                 if (!ok || busy(i))
                     continue;
-                var score = (airline is not null && p.Airlines.Contains(airline) ? 0 : 50) + Math.Abs(p.RadiusM - wingspanM / 2) + rng.NextDouble() * 10;
+                var score = AirlinePenalty(p, airline) + Math.Abs(p.RadiusM - wingspanM / 2) + rng.NextDouble() * 10;
                 if (score < bestScore)
                 {
                     bestScore = score;

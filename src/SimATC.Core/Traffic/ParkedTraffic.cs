@@ -16,7 +16,7 @@ namespace SimATC.Core.Traffic;
 public sealed record InjectedParked(uint ObjectId, ParkedAircraft Aircraft, bool IsParkedAtc = false,
     GeoPoint? ParkedAt = null, double? ParkedHeadingDeg = null)
 {
-    public GeoPoint Position => ParkedAt ?? Aircraft.Parking.Position;
+    public GeoPoint Position => ParkedAt ?? Aircraft.Position;
     public double HeadingDeg => ParkedHeadingDeg ?? Aircraft.Parking.HeadingTrueDeg;
 }
 
@@ -59,14 +59,14 @@ public sealed class ParkedTraffic
     public async Task<int> PopulateLevelAsync(ISimBridge bridge, AirportData airport, RouteList routes, ModelMatcher matcher,
         TrafficPreset preset, int keepFree, GeoPoint? user, Action<string> log, CancellationToken ct,
         IReadOnlySet<int>? busyStands = null, IReadOnlyList<GaDecorModel>? ga = null, int? seed = null,
-        Action<int, int, ParkedAircraft>? progress = null)
+        Action<int, int, ParkedAircraft>? progress = null, WideStands? wide = null, World.VatsimRouteStore? vatsim = null)
     {
         RemoveParked(bridge);
         var plan = ParkedFleetPlanner.PlanForLevel(airport, routes, matcher, matcher.TypesFor, preset, keepFree, user, seed ?? Random.Shared.Next(),
-            busyStands is null ? null : Overlapping(airport, busyStands), ga);
+            busyStands is null ? null : Overlapping(airport, busyStands), ga, wide, vatsim);
         var (airlineTarget, gaTarget) = StandCensus.Targets(airport, preset, keepFree);
         log(Tr.F("{0}: nivel de tráfico → {1} de aerolínea (pedidos {2}), ", airport.Icao, plan.Count(p => !p.Decor || p.Airline.Length > 0), airlineTarget)
-            + $"{plan.Count(p => p.Airline.Length == 0)} de aviación general (pedidos {gaTarget}), {keepFree} puestos libres para llegadas.");
+            + Tr.F("{0} de aviación general (pedidos {1}), {2} puestos libres para llegadas.", plan.Count(p => p.Airline.Length == 0), gaTarget, keepFree));
         return await SpawnPlanAsync(bridge, airport, plan, user, log, ct, busyStands, progress).ConfigureAwait(false);
     }
 
@@ -87,13 +87,19 @@ public sealed class ParkedTraffic
                 // 1) Parked ATC: el simulador elige el puesto (según envergadura y códigos de la aerolínea) y conecta la
                 //    pasarela. Se acepta si quedó en un puesto conocido, libre y lejos del piloto.
                 //    La decoración (aviación general, remotos "de noche") no usa ATC: nunca sale.
-                var item = p.Decor ? null : await TryParkedAtcAsync(bridge, airport, p, usedStands, user, log, ct).ConfigureAwait(false);
+                //    Tampoco un fuselaje ancho en una puerta chica: el simulador lo mandaría a otro lado.
+                var item = p.Decor || p.WideHalfSpanM > 0 ? null : await TryParkedAtcAsync(bridge, airport, p, usedStands, user, log, ct).ConfigureAwait(false);
                 // 2) Si no: sin ATC en el puesto que eligió el planificador (si sigue libre).
-                if (item is null && !usedStands.Contains(p.ParkingIndex))
+                //    El simulador reparte los Parked ATC a su manera: si su puesto quedó ocupado, otro igual que esté libre.
+                var at = p;
+                if (item is null && usedStands.Contains(p.ParkingIndex) && p.WideHalfSpanM <= 0 && !p.Decor
+                    && SameKind(airport, p, usedStands, user) is >= 0 and var other)
+                    at = p with { ParkingIndex = other, Parking = airport.Parkings[other] };
+                if (item is null && !usedStands.Contains(at.ParkingIndex))
                 {
-                    var request = new ParkedSpawnRequest(p.Match.Model.Title, p.TailNumber, p.Parking.Position,
-                        airport.ElevationFt, p.Parking.HeadingTrueDeg, p.Match.Model.EngineCount);
-                    item = new InjectedParked(await bridge.SpawnParkedAsync(request, ct).ConfigureAwait(false), p);
+                    var request = new ParkedSpawnRequest(p.Match.Model.Title, p.TailNumber, at.Position,
+                        airport.ElevationFt, at.Parking.HeadingTrueDeg, p.Match.Model.EngineCount);
+                    item = new InjectedParked(await bridge.SpawnParkedAsync(request, ct).ConfigureAwait(false), at);
                 }
                 if (item is null)
                 {
@@ -101,6 +107,8 @@ public sealed class ParkedTraffic
                     continue;
                 }
                 usedStands.UnionWith(Overlapping(airport, [item.Aircraft.ParkingIndex]));
+                if (item.Aircraft.WideHalfSpanM > 0)
+                    usedStands.UnionWith(BlockedBy(airport, item.Aircraft.ParkingIndex, item.Aircraft.WideHalfSpanM));
                 created.Add(item);
                 lock (_lock)
                     _items = [.. created];
@@ -133,6 +141,35 @@ public sealed class ParkedTraffic
             }
         }
         return result;
+    }
+
+    /// <summary>Un puesto libre del mismo tipo donde quepa, de su aerolínea o sin lista; -1 si no hay.</summary>
+    private static int SameKind(AirportData airport, ParkedAircraft p, HashSet<int> used, GeoPoint? user)
+    {
+        var half = p.Match.Model.WingspanM > 0 ? p.Match.Model.WingspanM / 2 : 18;
+        var best = -1;
+        for (var i = 0; i < airport.Parkings.Count; i++)
+        {
+            var q = airport.Parkings[i];
+            if (used.Contains(i) || q.Type != p.Parking.Type || q.RadiusM < Math.Max(half, 0.9 * p.Parking.RadiusM)
+                || q.Airlines.Count > 0 && !q.Airlines.Contains(p.Airline, StringComparer.OrdinalIgnoreCase)
+                || user is { } u && GeoMath.DistanceM(q.Position, u) < ParkedFleetPlanner.UserClearanceM + half)
+                continue;
+            if (best < 0 || q.RadiusM < airport.Parkings[best].RadiusM)
+                best = i;
+        }
+        return best;
+    }
+
+    /// <summary>Los puestos que toca un avión de esa media envergadura en ese puesto (ADR-167).</summary>
+    public static IEnumerable<int> BlockedBy(AirportData airport, int stand, double halfSpanM)
+    {
+        for (var i = 0; i < airport.Parkings.Count; i++)
+        {
+            if (i != stand && GeoMath.DistanceM(airport.Parkings[stand].Position, airport.Parkings[i].Position)
+                < halfSpanM + airport.Parkings[i].RadiusM + WideStands.WingMarginM)
+                yield return i;
+        }
     }
 
     /// <summary>Distancia máxima entre donde quedó el Parked ATC y el centro de un puesto para reconocerlo (m).</summary>

@@ -46,12 +46,14 @@ public partial class MainWindowViewModel
         if (_director is null)
         {
             _director = new TrafficDirector(_world, routesPath, _matcher, _engine, Log);
+            // Rutas de VATSIM (ADR-061): lo guardado de otras sesiones, y se refresca en segundo plano desde ya: el primer
+            // llenado usa los tipos de avión que se ven ahí (ADR-168).
+            _director.Vatsim = VatsimRouteStore.Load(VatsimRouteStore.PathFor(SimATC.Core.AppPaths.Root));
+            _ = Task.Run(() => RefreshVatsimAsync(CancellationToken.None));
             Stage(Tr.T("Fijos, radioayudas y aerovías del simulador…"), 35);
             await EnsureNavigationAsync();
             _director.Airways = AirwayDb;
             _director.Nav = Nav;
-            // Rutas de VATSIM (ADR-061): lo guardado de otras sesiones, y se refresca en segundo plano.
-            _director.Vatsim = VatsimRouteStore.Load(VatsimRouteStore.PathFor(SimATC.Core.AppPaths.Root));
             _director.LoadAirport = async (icao, ct) =>
             {
                 try
@@ -87,7 +89,7 @@ public partial class MainWindowViewModel
                     try
                     {
                         var id = await _bridge.HandOverAsync(item.ObjectId, new ParkedSpawnRequest(model.Title, item.Aircraft.TailNumber,
-                            stand.Position, a.ElevationFt, stand.HeadingTrueDeg, model.EngineCount), CancellationToken.None);
+                            item.Aircraft.Position, a.ElevationFt, stand.HeadingTrueDeg, model.EngineCount), CancellationToken.None);
                         _director?.Rekey(item.ObjectId, id);
                         _parked.Adopt(item with { ObjectId = id, ParkedAt = null, ParkedHeadingDeg = null });
                     }
@@ -249,6 +251,9 @@ public partial class MainWindowViewModel
     /// <summary>Fijos pedidos por segundo para la capa de aerovías (el simulador responde ~42 por segundo; se deja aire).</summary>
     private const int AirwayCrawlPerSecond = 25;
 
+    /// <summary>Fijos por segundo de la carga de fondo mientras alguna ruta espera los suyos.</summary>
+    private const int AirwayCrawlWhileRouting = 3;
+
     /// <summary>
     /// Descarga de las aerovías (ADR-064), unos fijos por segundo en segundo plano: primero lo que se ve en el radar (con la
     /// capa de aerovías encendida y una zona de menos de ~600 NM), después el mundo entero empezando por tu zona. Solo los
@@ -280,6 +285,8 @@ public partial class MainWindowViewModel
                 if (Nav is not { } nav || !_bridge.IsConnected)
                     continue;
                 var asked = 0;
+                // Las rutas del tráfico van primero (ADR-165): el simulador da ~42 fijos por segundo para todos.
+                var limit = db.Waiting > 0 ? AirwayCrawlWhileRouting : AirwayCrawlPerSecond;
                 // 1) Lo que se mira en el radar.
                 if (ShowAirways && _radarBox is { } box && box.N - box.S <= 10)
                 {
@@ -291,7 +298,7 @@ public partial class MainWindowViewModel
                         if (!MayHaveAirways(f) || db.Contains(f.Ident, f.Region))
                             continue;
                         _ = db.GetAsync(f.Ident, f.Region, CancellationToken.None);
-                        if (++asked >= AirwayCrawlPerSecond)
+                        if (++asked >= limit)
                             break;
                     }
                 }
@@ -308,7 +315,7 @@ public partial class MainWindowViewModel
                     worldFor = nav;
                     next = 0;
                 }
-                while (asked < AirwayCrawlPerSecond && world is not null && next < world.Length)
+                while (asked < limit && world is not null && next < world.Length)
                 {
                     var f = world[next++];
                     if (db.Contains(f.Ident, f.Region))

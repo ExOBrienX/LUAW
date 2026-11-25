@@ -125,13 +125,21 @@ public sealed class WorldRoutes
     public static WorldRoutes ParseZone(TextReader reader, IReadOnlySet<string> zoneAirports, GeoPoint center, double radiusM)
     {
         var routes = new WorldRoutes { Center = center, RadiusM = radiusM };
+        var totals = routes._airlineTotals.GetAlternateLookup<ReadOnlySpan<char>>();
         reader.ReadLine(); // encabezado
         while (reader.ReadLine() is { } line)
         {
             var comma = line.IndexOf(',');
             if (comma <= 0)
                 continue;
+            if (comma >= 3)
+                totals[line.AsSpan(0, 3)] = totals.TryGetValue(line.AsSpan(0, 3), out var n) ? n + 1 : 1;
             var codes = line.AsSpan(comma + 1);
+            for (var i = 0; comma >= 3 && i + 4 <= codes.Length; i += 5)
+            {
+                var key = ((long)Airline(line) << 32) | (uint)Region(codes.Slice(i, 4));
+                System.Runtime.InteropServices.CollectionsMarshal.GetValueRefOrAddDefault(routes._airlineRegions, key, out _)++;
+            }
             // Filtro rápido sin asignar: ¿alguno de sus aeropuertos está en la zona?
             var touches = false;
             for (var i = 0; i + 4 <= codes.Length; i += 5)
@@ -146,6 +154,18 @@ public sealed class WorldRoutes
                 continue;
             var callsign = line[..comma];
             var list = line[(comma + 1)..].Split('-');
+            // Con una escala (LTFM-SBGR-SCEL) también es ir directo a su país; una escala técnica de carga, no.
+            for (var i = 0; i + 2 < list.Length; i++)
+            {
+                if (list[i + 1] is "PANC" or "PAFA")
+                    continue;
+                // Ni un tramo interno de otro país (KMIA-KSEA-RKSI): de pasajeros no se puede.
+                var mid = Region(list[i + 1]);
+                if (mid != Region(list[i]))
+                    routes._oneStop.Add((callsign[..3], list[i], Region(list[i + 2])));
+                if (mid != Region(list[i + 2]))
+                    routes._oneStop.Add((callsign[..3], list[i + 2], Region(list[i])));
+            }
             for (var i = 0; i + 1 < list.Length; i++)
             {
                 if (zoneAirports.Contains(list[i]) || zoneAirports.Contains(list[i + 1]))
@@ -168,6 +188,94 @@ public sealed class WorldRoutes
         if (!map.TryGetValue(key, out var list))
             map[key] = list = [];
         list.Add(leg);
+    }
+
+    // Cuántas veces toca cada aerolínea cada región (aerolínea en la parte alta, región en la baja).
+    private readonly Dictionary<long, int> _airlineRegions = [];
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _homes = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(string, string), bool> _visits = new();
+
+    // Aerolínea, aeropuerto y región a la que llega desde ahí con una escala.
+    private readonly HashSet<(string Airline, string Icao, int Region)> _oneStop = [];
+
+    private static int Airline(ReadOnlySpan<char> callsign) => callsign[0] << 16 | callsign[1] << 8 | callsign[2];
+
+    /// <summary>
+    /// Región aproximada por el prefijo OACI: Europa entera (E, L, B) y los países de una letra juntos; los demás, por sus dos
+    /// primeras letras. Solo para saber de dónde es una aerolínea.
+    /// </summary>
+    private static int Region(ReadOnlySpan<char> icao) => icao[0] switch
+    {
+        'E' or 'L' or 'B' => 'E',
+        'K' or 'C' or 'Y' or 'U' => icao[0],
+        'Z' when icao[1] is not ('K' or 'M') => 'Z',
+        _ => icao[0] << 8 | icao[1],
+    };
+
+    private int HomeOf(string airline) => _homes.GetOrAdd(airline, a =>
+    {
+        var id = Airline(a);
+        var (best, count) = (0, 0);
+        foreach (var (key, n) in _airlineRegions)
+        {
+            if (key >> 32 == id && n > count)
+                (best, count) = ((int)(uint)key, n);
+        }
+        return best;
+    });
+
+    /// <summary>
+    /// ¿La aerolínea opera ahí fuera de su región y sin ningún tramo a ella, directo o con una escala? Si además vuela carga, es solo carga
+    /// (ADR-171: Korean en Miami viene de Anchorage y sigue a São Paulo; salía un 787 de pasajeros).
+    /// </summary>
+    public bool NeverFromHome(string airline, string icao) => _visits.GetOrAdd((airline, icao), k =>
+    {
+        if (k.Item1.Length < 3 || k.Item2.Length < 4)
+            return false;
+        var home = HomeOf(k.Item1);
+        if (home == 0 || Region(k.Item2) == home || _oneStop.Contains((k.Item1, k.Item2, home)))
+            return false;
+        foreach (var l in DeparturesFrom(k.Item2))
+        {
+            if (l.Airline == k.Item1 && Region(l.Destination) == home)
+                return false;
+        }
+        foreach (var l in ArrivalsTo(k.Item2))
+        {
+            if (l.Airline == k.Item1 && Region(l.Origin) == home)
+                return false;
+        }
+        return true;
+    });
+
+    // Indicativos de cada aerolínea en todo el mundo.
+    private readonly Dictionary<string, int> _airlineTotals = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, HashSet<string>> _strays = new(StringComparer.Ordinal);
+
+    /// <summary>Desde cuántos indicativos en el mundo una aerolínea con uno solo en un aeropuerto es una visita suelta.</summary>
+    public const int StrayAirlineTotal = 100;
+
+    /// <summary>Y desde cuántos tramos del aeropuerto (en uno chico la base puede tener la mitad de sus vuelos).</summary>
+    public const int StrayAirportLegs = 100;
+
+    /// <summary>
+    /// ¿La aerolínea no opera ahí de verdad? Una grande con un solo indicativo en un aeropuerto con mucho tráfico es un chárter
+    /// o un desvío que quedó en la base (ADR-167: ETD986 KLCK-KMIA-EHAM ponía a Etihad en Miami).
+    /// </summary>
+    public bool IsStray(string airline, string icao) => _strays.GetOrAdd(icao, FindStrays).Contains(airline);
+
+    private HashSet<string> FindStrays(string icao)
+    {
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        var legs = DeparturesFrom(icao).Concat(ArrivalsTo(icao)).ToList();
+        if (legs.Count < StrayAirportLegs)
+            return result;
+        foreach (var g in legs.GroupBy(l => l.Airline))
+        {
+            if (_airlineTotals.GetValueOrDefault(g.Key) >= StrayAirlineTotal && g.Select(l => l.Callsign).Distinct().Count() == 1)
+                result.Add(g.Key);
+        }
+        return result;
     }
 
     private static readonly List<WorldLeg> None = [];

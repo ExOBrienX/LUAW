@@ -170,6 +170,59 @@ public class TrafficDirectorTests
         Assert.Equal(parked.Count, parked.Select(p => p.Aircraft.ParkingIndex).Distinct().Count());
     }
 
+    /// <summary>Las llegadas nuevas entran más cerca, pero siempre fuera del radio de inyección (nadie las ve aparecer).</summary>
+    [Fact]
+    public void New_arrivals_enter_closer_but_outside_the_injection_radius()
+    {
+        var nm = TrafficEngine.InjectDistanceM / 1852;
+        Assert.InRange(TrafficDirector.ArrivalEntryNm(), nm + TrafficDirector.EntryMarginNm, 150);
+        Assert.True(TrafficDirector.EntryMarginNm > TrafficEngine.RemoveMarginNm);
+    }
+
+    /// <summary>
+    /// ADR-165 (KMIA 2026-11-25, caché de aerovías vacía): con el simulador lento para dar los fijos, el director no se queda
+    /// esperando las rutas, y los lugares de las llegadas iniciales no se pierden: se llenan cuando las rutas están.
+    /// </summary>
+    [Fact]
+    public async Task Slow_routes_neither_stop_the_director_nor_waste_the_initial_arrivals()
+    {
+        var airport = Scel.Value;
+        var graph = TaxiGraph.Build(airport);
+        var pilot = airport.Parkings[0].Position;
+        var bridge = new FakeSimBridge(new UserAircraftState(pilot, airport.ElevationFt, 0, 0, 0, 0, 0, true, 0, 2000));
+        bridge.Start();
+        var engine = new TrafficEngine(bridge, _ => { });
+        var answer = new TaskCompletionSource<AirwayFix?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        // TEST DATA: una ruta escrita por cada par que llega a SCEL; sus fijos no llegan hasta que se libera "answer".
+        var store = VatsimRouteStore.Load(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
+        var zone = Airports.Value.Within(airport.Reference, 400 * 1852).Select(a => a.Icao).ToHashSet();
+        foreach (var leg in WorldRoutes.LoadZone(WorldRoutes.PathFor(DataDir), zone, airport.Reference, 400 * 1852).ArrivalsTo("SCEL"))
+            store.Add(leg.Origin, leg.Destination, "AAAAA DCT BBBBB", "I");
+        var created = 0;
+        var director = new TrafficDirector(Airports.Value, WorldRoutes.PathFor(DataDir), Matcher(), engine, m =>
+        {
+            if (m.Contains("llegada desde"))
+                Interlocked.Increment(ref created);
+        }, seed: 7)
+        {
+            Airways = new AirwayDatabase((_, _, _) => answer.Task),
+            Vatsim = store,
+        };
+        var now = new DateTime(2026, 11, 2, 14, 0, 0, DateTimeKind.Utc);
+        DirectorContext Ctx(int s) => new(airport, graph, "17R", pilot, now.AddSeconds(s), [], new HashSet<int>(), 100, Departures: false);
+        await director.EnsureZoneAsync(pilot);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        await director.UpdateAsync(Ctx(0), CancellationToken.None);
+        Assert.True(watch.Elapsed.TotalSeconds < 12, $"el director se detuvo {watch.Elapsed.TotalSeconds:0} s");
+        answer.SetResult(null);
+        for (var i = 1; i <= 12 && Volatile.Read(ref created) < 3; i++)
+        {
+            await Task.Delay(100);
+            await director.UpdateAsync(Ctx(i * 20), CancellationToken.None);
+        }
+        Assert.True(created >= 3, $"{created} llegadas iniciales");
+    }
+
     /// <summary>
     /// ADR-145: la demanda con las pistas que el aeropuerto puede abrir (dos), no con la que está en uso. Con una sola, el tope
     /// era de una pista, el reparto veía poca demanda y dejaba una sola pista mixta (KEWR: 12 llegadas por hora a las 18 Z).

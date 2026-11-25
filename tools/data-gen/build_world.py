@@ -14,6 +14,8 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 CALLSIGN = re.compile(r"^[A-Z]{3}[0-9]{1,4}[A-Z]{0,2}$")
 ICAO = re.compile(r"^[A-Z]{4}$")
 
@@ -53,6 +55,10 @@ def main():
                     icao = (row.get("ICAO") or "").strip().upper()
                     if icao in used and row["Latitude"] and row["Longitude"]:
                         airports[icao] = (float(row["Latitude"]), float(row["Longitude"]), int(float(row["AltitudeFeet"] or 0)))
+
+    from clean_routes import foreign_domestic, home_regions
+    homes = home_regions(routes)
+    routes = [r for r in routes if not foreign_domestic(r[0], r[1], homes)]
 
     # Rutas cuyos aeropuertos tienen coordenadas (si falta uno, la ruta no sirve para ubicar el vuelo).
     routes = [r for r in routes if all(c in airports for c in r[1].split("-"))]

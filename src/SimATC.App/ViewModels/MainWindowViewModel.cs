@@ -373,7 +373,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 OnPropertyChanged(nameof(AirportText));
                 Status = Tr.F("Conectado · cargando {0}…", icao);
                 Stage(Tr.F("Cargando {0}…", icao), 10);
-                var (airport, fromCache) = await _airports.GetAsync(icao, false, CancellationToken.None);
+                _airports.Log ??= Log;
+                var (airport, fromCache) = await _airports.GetFreshAsync(icao, CancellationToken.None);
                 // Sin pistas (un parque o helipuerto): el aeropuerto con pistas más cercano, si hay otro en rango.
                 if (airport.Runways.Count == 0 && _noRunways.Add(icao) && await LocateAirportAsync() is { } other && other != icao)
                 {
@@ -381,7 +382,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     icao = other;
                     _icao = icao;
                     OnPropertyChanged(nameof(AirportText));
-                    (airport, fromCache) = await _airports.GetAsync(icao, false, CancellationToken.None);
+                    (airport, fromCache) = await _airports.GetFreshAsync(icao, CancellationToken.None);
                 }
                 SetAirport(airport, fromCache);
                 Change(_settings with { LastAirport = icao });

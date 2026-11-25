@@ -155,6 +155,7 @@ public sealed partial class MainWindowViewModel
     private string? _runwayPlanFor;
     private string? _runwayDeparturesFor;
     private double _runwayDepartures;
+    private bool _runwayRoutesKnown;
 
     /// <summary>
     /// Reparto automático de pistas (ADR-091) para la pista en uso, sin archivo del AIP: se calcula una vez por cambio de
@@ -171,13 +172,17 @@ public sealed partial class MainWindowViewModel
         // (ADR-138). Sin horario todavía, otras tantas como llegadas. Solo cambia si se mueve en 8 o más por hora, para que
         // las pistas no vayan y vuelvan por un avión de más o de menos en el horario.
         var departures = _director?.ScheduledDeparturesPerHour(ap.Icao, DateTime.UtcNow) ?? demand;
-        if (_runwayDeparturesFor == ap.Icao && Math.Abs(departures - _runwayDepartures) < 8)
+        // Al cargarse la base de rutas la demanda pasa de una estimación por puertas a la real: se recalcula en ese momento
+        // (ADR-165; en KMIA quedó 5 minutos con una sola pista mixta para 20 llegadas por hora).
+        var known = _director?.RoutesKnown == true;
+        if (_runwayDeparturesFor == ap.Icao && known == _runwayRoutesKnown && Math.Abs(departures - _runwayDepartures) < 8)
             departures = _runwayDepartures;
+        _runwayRoutesKnown = known;
         _runwayDeparturesFor = ap.Icao;
         _runwayDepartures = departures;
         // Las pistas del plan del piloto en este aeropuerto pesan en el reparto (ADR-137).
         var (planDep, planArr) = PlanRunwaysAt(ap.Icao, asLoaded: true);
-        var key = $"{ap.Icao}:{cur.Label}:{Math.Round(demand / 8)}:{departures:0}:{planDep}:{planArr}";
+        var key = $"{ap.Icao}:{cur.Label}:{known}:{Math.Round(demand / 8)}:{departures:0}:{planDep}:{planArr}";
         if (_runwayPlanFor == key)
             return _runwayPlan;
         _runwayPlanFor = key;
@@ -436,8 +441,8 @@ public sealed partial class MainWindowViewModel
             if (closed.Count > 0)
                 lines.Add(Tr.F("se cierra la {0} para {1}", string.Join(Tr.T(" y la "), closed), role));
         }
-        Diff(_announcedArrivals, arr, "llegadas");
-        Diff(_announcedDepartures, dep, "salidas");
+        Diff(_announcedArrivals, arr, Tr.T("llegadas"));
+        Diff(_announcedDepartures, dep, Tr.T("salidas"));
         _announcedArrivals = arr;
         _announcedDepartures = dep;
         if (lines.Count == 0)
