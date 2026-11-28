@@ -94,7 +94,7 @@ public sealed class KokoroTts(string hostExe, string kokoroDir, string piperDir,
         var samples = new float[n];
         var bytes = _out.ReadBytes(n * 2);
         if (bytes.Length < n * 2)
-            throw new EndOfStreamException("el proceso de Kokoro se cerró");
+            throw new EndOfStreamException(Tr.T("el proceso de Kokoro se cerró"));
         for (var i = 0; i < n; i++)
             samples[i] = BitConverter.ToInt16(bytes, i * 2) / 32768f;
         return new AudioClip(samples, SampleRate);
@@ -117,7 +117,7 @@ public sealed class KokoroTts(string hostExe, string kokoroDir, string piperDir,
         psi.ArgumentList.Add(kokoroDir);
         psi.ArgumentList.Add(piperDir);
         psi.ArgumentList.Add(Threads.ToString(CultureInfo.InvariantCulture));
-        _process = Process.Start(psi) ?? throw new InvalidOperationException("no se pudo abrir el proceso de Kokoro");
+        _process = Process.Start(psi) ?? throw new InvalidOperationException(Tr.T("no se pudo abrir el proceso de Kokoro"));
         _process.ErrorDataReceived += (_, e) =>
         {
             if (!string.IsNullOrWhiteSpace(e.Data))

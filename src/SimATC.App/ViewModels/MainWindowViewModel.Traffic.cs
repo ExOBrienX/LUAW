@@ -199,7 +199,7 @@ public sealed partial class MainWindowViewModel
             var info = _flights.TryGetValue(a.ObjectId, out var f) ? f : default;
             AddRow(rows, search, new TrafficRowData(a.ObjectId, a.Callsign, info.Aircraft?.Type ?? "", info.Aircraft?.Airline ?? "",
                 info.Aircraft is { } pa ? RadarView.StandName(pa.Parking) : "", PhaseText(a.Phase), info.Runway ?? "",
-                waiting ? HoldText(a.Hold, a.HoldFor) : "—", DistanceText(a.Position), waiting, false, SelectedId == a.ObjectId));
+                waiting ? HoldText(a) : "—", DistanceText(a.Position), waiting, false, SelectedId == a.ObjectId));
         }
         if (filter is TrafficFilter.All or TrafficFilter.Parked)
         {

@@ -24,6 +24,26 @@ public sealed partial class RadarView : Control
     public static readonly StyledProperty<AirportData?> AirportProperty =
         AvaloniaProperty.Register<RadarView, AirportData?>(nameof(Airport));
 
+    /// <summary>Envergadura del avión del piloto (m), para dibujarlo a escala con zoom cercano.</summary>
+    public static readonly StyledProperty<double> UserWingspanMProperty =
+        AvaloniaProperty.Register<RadarView, double>(nameof(UserWingspanM), 36);
+
+    public double UserWingspanM
+    {
+        get => GetValue(UserWingspanMProperty);
+        set => SetValue(UserWingspanMProperty, value);
+    }
+
+    /// <summary>Motores del avión del piloto (con 4 se dibuja como cuatrimotor).</summary>
+    public static readonly StyledProperty<Core.Fleet.AircraftShape> UserShapeProperty =
+        AvaloniaProperty.Register<RadarView, Core.Fleet.AircraftShape>(nameof(UserShape), Core.Fleet.AircraftShape.Narrow);
+
+    public Core.Fleet.AircraftShape UserShape
+    {
+        get => GetValue(UserShapeProperty);
+        set => SetValue(UserShapeProperty, value);
+    }
+
     public static readonly StyledProperty<UserAircraftState?> UserStateProperty =
         AvaloniaProperty.Register<RadarView, UserAircraftState?>(nameof(UserState));
 
@@ -536,6 +556,16 @@ public sealed partial class RadarView : Control
         base.OnDetachedFromVisualTree(e);
     }
 
+    /// <summary>
+    /// Zoom y arrastre se dibujan en el próximo cuadro de la pantalla, sin esperar el reloj del radar (que va a
+    /// <see cref="MaxFps"/>): si no, el zoom avanzaba a saltos. Avalonia junta varias invalidaciones en un solo cuadro.
+    /// </summary>
+    private void RedrawNow()
+    {
+        _dirty = false;
+        InvalidateVisual();
+    }
+
     private void OnTick(object? sender, EventArgs e)
     {
         // Las capas de navegación se rearman un momento después de terminar el zoom (mientras tanto se escalan).
@@ -731,7 +761,8 @@ public sealed partial class RadarView : Control
                 var p = ToScreen(ToWorld(at));
                 var selected = t.Id != 0 && t.Id == SelectedId;
                 var brush = selected ? SelectedBrush : t.Holding ? HoldingBrush : TrafficBrush;
-                ctx.DrawGeometry(brush, null, Arrow(p, t.HeadingTrueDeg, 0.7));
+                if (!DrawToScale(ctx, p, t.HeadingTrueDeg, t.WingspanM, t.Shape, brush))
+                    ctx.DrawGeometry(brush, null, Arrow(p, t.HeadingTrueDeg, 0.7));
                 if (selected)
                     ctx.DrawEllipse(null, SelectedPen, p, 12, 12);
                 if (_scale >= TrafficLabelMinScale || selected)
@@ -889,7 +920,8 @@ public sealed partial class RadarView : Control
     private void DrawUser(DrawingContext ctx, UserAircraftState user)
     {
         var p = ToScreen(ToWorld(user.Position));
-        ctx.DrawGeometry(UserBrush, null, Airplane(p, user.HeadingTrueDeg));
+        if (!DrawToScale(ctx, p, user.HeadingTrueDeg, UserWingspanM, UserShape, UserBrush))
+            ctx.DrawGeometry(UserBrush, null, Airplane(p, user.HeadingTrueDeg));
         if (SelectedId == UserId)
             ctx.DrawEllipse(null, SelectedPen, p, 12, 12);
 
@@ -1293,7 +1325,7 @@ public sealed partial class RadarView : Control
         OnNavZoom();
         var after = ToWorldFromScreen(mouse);
         _center += before - after; // el punto bajo el cursor queda fijo
-        _dirty = true;
+        RedrawNow();
         e.Handled = true;
     }
 
@@ -1317,7 +1349,7 @@ public sealed partial class RadarView : Control
         FollowSelected = false; // al arrastrar a mano se deja de seguir
         _center -= (now - last) / _scale;
         _dragLast = now;
-        _dirty = true;
+        RedrawNow();
     }
 
     private void OnReleased(object? sender, PointerReleasedEventArgs e)

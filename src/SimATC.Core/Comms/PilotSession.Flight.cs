@@ -229,7 +229,30 @@ public sealed partial class PilotSession
     private AtcStation? _handoffTo;
     private AtcStation? _awaitingCheckIn;
     private double? _clearedFt;
+
+    /// <summary>El último nivel o altitud autorizado en vuelo (ft); null si no hay.</summary>
+    public double? ClearedAltitudeFt => _clearedFt;
     private bool _cruiseCleared;
+
+    /// <summary>
+    /// Escalón del ascenso que da Salidas/Aproximación antes de pasar al Centro (ft, FL150; ADR-175). Regla general para
+    /// cualquier aeropuerto: LUAW no conoce el techo real de cada espacio aéreo.
+    /// </summary>
+    public const double DepartureStepFt = 15_000;
+
+    /// <summary>El Centro de la zona del piloto, si es otra dependencia que <paramref name="station"/>.</summary>
+    private AtcStation? NextCenter(AtcStation station) =>
+        ctx.PilotPosition() is { } here && ctx.CenterAt?.Invoke(here) is { } c && c.Khz != station.Khz ? c : null;
+
+    private AtcTransmission Climb(AtcStation station, double ft, double nowS)
+    {
+        var level = LevelText(ft, OriginTa);
+        return FlightInstruction(station, "atc.climb", new() { ["level"] = level }, new ExpectedReadback(Callsign) { LevelFt = ft },
+            "pilot.readback_climb", new() { ["level"] = level }, nowS);
+    }
+
+    // Despegó sin nadie a quien pasarlo (ADR-173): el Centro de la zona que aparezca después no le habla sin primer contacto.
+    private bool _leftWithoutAtc;
     private bool _descentGiven;
     private bool _approachExpected;
     private bool _approachCleared;
@@ -299,12 +322,28 @@ public sealed partial class PilotSession
     /// <summary>La dependencia con la que habla en las fases de vuelo.</summary>
     private AtcStation? FlightStation => Phase switch
     {
-        PilotPhase.WithApproach or PilotPhase.EnRoute => _awaitingCheckIn ?? _enroute ?? DepartureStation,
+        PilotPhase.WithApproach or PilotPhase.EnRoute => _awaitingCheckIn ?? _enroute ?? (_leftWithoutAtc ? null : DepartureStation),
         PilotPhase.Arrival => _awaitingCheckIn ?? Arrival?.Stations.For(AtcRole.Approach) ?? _enroute,
         PilotPhase.ArrivalTower or PilotPhase.Landed => _awaitingCheckIn ?? Arrival?.Stations.For(AtcRole.Tower),
         PilotPhase.TaxiIn or PilotPhase.Arrived => Arrival?.Stations.For(AtcRole.Ground) ?? Arrival?.Stations.For(AtcRole.Tower),
         _ => null,
     };
+
+    /// <summary>
+    /// Sin dependencia en ruta (ADR-173): busca a quién llamar. La Aproximación del destino (o su Torre) al acercarse; si
+    /// no, el Centro de la posición en cuanto se conozca su frecuencia. El piloto hace el primer contacto.
+    /// </summary>
+    private void FindStation(ArrivalInfo? arrival, double destNm)
+    {
+        var next = arrival is not null && destNm <= ApproachHandoffNm
+            ? arrival.Stations.For(AtcRole.Approach) ?? arrival.Stations.For(AtcRole.Tower)
+            : null;
+        next ??= ctx.PilotPosition() is { } here ? ctx.CenterAt?.Invoke(here) : null;
+        if (next is null)
+            return;
+        _awaitingCheckIn = next;
+        log?.Invoke(Tr.F("{0}: sin ATC hasta ahora; tiene que llamar a {1} {2}.", Callsign, next.Callsign, next.FrequencyText));
+    }
 
     /// <summary>La dependencia que corresponde a esa frecuencia: origen, la de ruta, la del destino.</summary>
     private AtcStation? StationOn(int khz)
@@ -429,6 +468,11 @@ public sealed partial class PilotSession
         var destNm = DestinationNm();
         var arrival = Arrival;
         var station = FlightStation;
+        if (station is null && Phase is PilotPhase.WithApproach or PilotPhase.EnRoute)
+        {
+            FindStation(arrival, destNm);
+            return [];
+        }
         if (station is not null && LevelBust(station, alt, nowS) is { } bust)
             return [bust];
         // La llegada vigilada (ADR-105): velocidad, perfil, senda y estabilización.
@@ -450,12 +494,15 @@ public sealed partial class PilotSession
                 }
                 if (alt < initial - 2000)
                     return [];
-                _cruiseCleared = true;
-                _clearedFt = cruise;
+                // En dos escalones (ADR-175): Salidas sube hasta DepartureStepFt y el Centro da el crucero. Sin Centro que
+                // siga, el crucero de una (si no, nadie lo daría).
+                var step = cruise > DepartureStepFt + 500 && DepartureStepFt > initial + 500 && NextCenter(station) is not null
+                    ? DepartureStepFt
+                    : cruise;
+                _cruiseCleared = step >= cruise;
+                _clearedFt = step;
                 Phase = PilotPhase.EnRoute;
-                var level = LevelText(cruise, OriginTa);
-                return [FlightInstruction(station, "atc.climb", new() { ["level"] = level }, new ExpectedReadback(Callsign) { LevelFt = cruise },
-                    "pilot.readback_climb", new() { ["level"] = level }, nowS)];
+                return [Climb(station, step, nowS)];
             }
             case PilotPhase.EnRoute when station is not null && RunwayChangeToAnnounce(arrival):
                 return [ExpectApproach(station, arrival!)];
@@ -477,6 +524,22 @@ public sealed partial class PilotSession
                 // Descenso en el TOD (3° desde la altitud de la aproximación).
                 var floor = arrival?.ApproachAltitudeFt ?? (arrival?.Airport.ElevationFt ?? 0) + 3000;
                 var target = Math.Max(10_000, Math.Ceiling(((arrival?.Airport.ElevationFt ?? 0) + 6000) / 1000) * 1000);
+                // Segundo escalón del ascenso (ADR-175): el Centro da el crucero al primer contacto; si no hay Centro que
+                // siga, la misma dependencia al acercarse al escalón. Si ya toca bajar, no se sube.
+                if (!_cruiseCleared && !_descentGiven)
+                {
+                    var cruise = (double)ctx.Plan.CruiseAltitudeFt;
+                    if (DescentDue(alt, floor, destNm) || cruise <= (_clearedFt ?? 0))
+                    {
+                        _cruiseCleared = true;
+                    }
+                    else if (station.Role == AtcRole.Center || NextCenter(station) is null && alt >= (_clearedFt ?? 0) - 2000)
+                    {
+                        _cruiseCleared = true;
+                        _clearedFt = cruise;
+                        return [Climb(station, cruise, nowS)];
+                    }
+                }
                 // Por la ruta que queda (STAR incluida), no en línea recta: con la STAR que da la vuelta el descenso llegaba
                 // antes de tiempo (prueba de Marco 2026-11-06). ADR-089.
                 if (!_descentGiven && alt > target + 1000 && DescentDue(alt, floor, destNm))
@@ -826,7 +889,7 @@ public sealed partial class PilotSession
         }
         // Una puerta libre; si no queda ninguna, un puesto remoto donde quepa (ADR-089: en SCIE, 4 puertas ocupadas, Ground
         // respondía "repita" y el piloto quedó detenido junto a la pista).
-        var halfSpan = Engine.TrafficEngine.UserWingspanM / 2;
+        var halfSpan = (ctx.PilotWingspanM?.Invoke() ?? Engine.TrafficEngine.DefaultUserWingspanM) / 2;
         for (var pass = 0; pass < 2 && route is null; pass++)
         {
             var candidates = Enumerable.Range(0, arrival.Airport.Parkings.Count)
@@ -883,6 +946,10 @@ public sealed partial class PilotSession
         if (Phase < PilotPhase.WithApproach)
             return null;
         var arrival = Arrival;
+        // Sin ATC (ADR-173): si llama él a un Centro o a la Aproximación que se conoce, es su primer contacto.
+        if (_awaitingCheckIn is null && FlightStation is null && Phase is PilotPhase.WithApproach or PilotPhase.EnRoute && m.HasCallsign
+            && station.Role is AtcRole.Center or AtcRole.Approach or AtcRole.Departure)
+            _awaitingCheckIn = station;
         // Primer contacto con la dependencia a la que lo pasaron.
         if (_awaitingCheckIn is { } next && Math.Abs(next.Khz - station.Khz) <= 2 && m.HasCallsign
             && !m.Has(PilotIntent.RequestDirect) && !m.Has(PilotIntent.RequestDescent) && !m.Has(PilotIntent.RequestClimb))
@@ -1226,6 +1293,9 @@ public sealed partial class PilotSession
             return new(next.Role == AtcRole.Ground
                 ? Tr.F("Libra la pista y avisa a {0} {1} que la dejaste libre.", next.Callsign, next.FrequencyText)
                 : Tr.F("Cambia a {0} {1} y haz el primer contacto (indicativo y nivel).", next.Callsign, next.FrequencyText), next);
+        if (station is null && Phase is PilotPhase.WithApproach or PilotPhase.EnRoute)
+            return new(Tr.F("Sin ATC en esta zona: sigue la ruta a {0} a tu nivel de crucero. Te aviso cuando haya a quién llamar.",
+                ctx.Plan.Destination.Icao), null);
         return Phase switch
         {
             PilotPhase.WithApproach => new(Tr.T("Sigue la SID y sube al nivel autorizado: te darán el crucero."), station),

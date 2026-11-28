@@ -825,6 +825,24 @@ public class PilotSessionTests
         Assert.Equal(PilotPhase.LinedUp, s.Phase);
     }
 
+    // ADR-173 (vuelo EGLL-EDDF): alineado detrás de un B777 que despegaba, esperó sus 2 minutos de estela en la pista y la
+    // llegada frustró. Con la llegada antes de que termine esa espera, no se alinea detrás: espera en el punto de espera.
+    [Fact]
+    public void Tower_does_not_line_up_behind_a_heavy_when_an_arrival_comes_before_its_wake_wait()
+    {
+        var live = new Live();
+        var (s, tower, r17) = AtTheHoldingPoint(live);
+        live.Runway = new PilotRunwayStatus(r17, "AAL79", 0, "AAL79", false, OccupantType: "B77W", OccupantDeparting: true,
+            ArrivalInS: 240, OccupantWakeS: TowerControl.WakeDelayS);
+        var hold = s.OnPilotMessage("Santiago Tower, LAN205, holding point runway 17R, ready for departure", tower, 20).Single();
+        Assert.Contains("hold short", hold.Text);
+        Assert.Empty(s.OnPilotMessage("Holding short runway 17R, LAN205", tower, 24));
+        Assert.Empty(s.Tick(30));
+        // Sin llegada cerca, sí se alinea detrás.
+        live.Runway = live.Runway.Value with { ArrivalInS = 600 };
+        Assert.Contains("behind the departing", s.Tick(40).Single().Text);
+    }
+
     // ADR-129 (vuelo LEMG-LEMD): con una llegada en final de su pista, la Torre no lo autoriza; y si ya lo autorizó pero
     // sigue fuera de la pista cuando la llegada está encima, le cancela ("hold position").
     [Fact]

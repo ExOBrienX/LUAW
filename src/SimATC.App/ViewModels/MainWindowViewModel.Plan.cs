@@ -285,7 +285,7 @@ public sealed partial class MainWindowViewModel
         else if (_useAtcDeparture && RecommendedDeparture() is { } rd)
             items.Add(new(Tr.T("Salida elegida"), Tr.F("pista {0}{1} (LUAW)", rd.Runway, (rd.Sid is { } rs ? $" · {rs}" : ""))));
         if (_session is { Phase: >= PilotPhase.EnRoute and < PilotPhase.Arrived } && _arrival is { } arr)
-            items.Add(new(Tr.T("Llegada asignada"), $"pista {arr.Runway}{(arr.StarName is { } sn ? $" · {sn}" : "")}"
+            items.Add(new(Tr.T("Llegada asignada"), Tr.F("pista {0}", arr.Runway) + (arr.StarName is { } sn ? $" · {sn}" : "")
                                               + $"{(arr.ApproachName is { } an ? $" · {an}" : "")}{(arr.Transition is { } tr ? $" vía {tr}" : "")} (ATC)"));
         items.Add(new(Tr.T("Ruta"), p.Route.Length > 0 ? p.Route : "—"));
         if (p.ScheduledOffBlockUtc is { } off)

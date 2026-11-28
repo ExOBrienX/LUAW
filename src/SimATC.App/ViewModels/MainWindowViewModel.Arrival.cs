@@ -49,7 +49,7 @@ public sealed partial class MainWindowViewModel
         _ = EnsureCentersAsync();
         _arrivalAirport = dest;
         _arrivalAtc = AirportAtcData.Load(AirportAtcData.PathFor(_dataDir, dest.Icao), Log);
-        _arrivalStations = new AtcStations(dest, _arrivalAtc, _settings.AtcLanguage);
+        _arrivalStations = new AtcStations(WithLearnedFrequencies(dest), _arrivalAtc, _settings.AtcLanguage);
         try
         {
             var graph = await Task.Run(() => TaxiGraph.Build(dest));
@@ -217,6 +217,22 @@ public sealed partial class MainWindowViewModel
         Log(Tr.F("Directo a {0}: la ruta del radar sigue desde ahí.", fix));
     });
 
+    private PublicFrequencies? _publicFrequencies;
+
+    private VatsimCenterStore LoadCenters() =>
+        VatsimCenterStore.Load(VatsimCenterStore.PathFor(SimATC.Core.AppPaths.Root), VatsimCenterStore.SeedPathFor(_dataDir));
+
+    /// <summary>
+    /// El aeropuerto con las frecuencias de Aproximación, Salidas o Centro que el simulador no trae, vistas en VATSIM o de
+    /// la tabla pública (ADR-173). Solo para armar las dependencias del ATC.
+    /// </summary>
+    private SimATC.Core.Airports.AirportData WithLearnedFrequencies(SimATC.Core.Airports.AirportData airport)
+    {
+        _centers ??= LoadCenters();
+        _publicFrequencies ??= PublicFrequencies.Load(PublicFrequencies.PathFor(_dataDir));
+        return LearnedFrequencies.Augment(airport, _centers, _publicFrequencies, Log);
+    }
+
     /// <summary>Las FIR (una vez, en segundo plano) y los Centros guardados; cada 30 min se leen los Centros en línea.</summary>
     private async Task EnsureCentersAsync()
     {
@@ -228,7 +244,7 @@ public sealed partial class MainWindowViewModel
                 var dat = FirMap.DatPathFor(_dataDir);
                 var bounds = FirMap.BoundariesPathFor(_dataDir);
                 _firs = await Task.Run(() => FirMap.Load(dat, bounds));
-                _centers ??= VatsimCenterStore.Load(VatsimCenterStore.PathFor(SimATC.Core.AppPaths.Root));
+                _centers ??= LoadCenters();
                 _official = CenterData.Load(CenterData.PathFor(_dataDir), Log);
                 Log(Tr.F("FIR de VATSpy: {0} límites; {1} Centros oficiales (AIP) y {2} vistos en VATSIM.", _firs.Count, _official.Count, _centers.Count));
             }

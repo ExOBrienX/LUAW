@@ -183,7 +183,7 @@ public sealed partial class SimConnectBridge
                 else
                 {
                     _poseReads.Remove(objectId);
-                    read.Completion.TrySetException(new TimeoutException("El simulador no informó dónde quedó el avión."));
+                    read.Completion.TrySetException(new TimeoutException(Tr.T("El simulador no informó dónde quedó el avión.")));
                 }
             }
         }

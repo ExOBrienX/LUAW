@@ -142,7 +142,7 @@ public sealed partial class MainWindowViewModel
             if (_session is not null || _phrases is not { } phrases || Plan != plan)
                 return;
             var atc = AirportAtcData.Load(AirportAtcData.PathFor(_dataDir, origin.Icao), Log);
-            var stations = new AtcStations(origin, atc, _settings.AtcLanguage);
+            var stations = new AtcStations(WithLearnedFrequencies(origin), atc, _settings.AtcLanguage);
             _session = NewSession(plan, origin, atc, stations, TaxiGraph.Build(origin), phrases);
             Log(Tr.F("Retomar vuelo: sesión del ATC con los datos de {0} (aeropuerto activo {1}).", origin.Icao, Airport?.Icao ?? "—"));
         }

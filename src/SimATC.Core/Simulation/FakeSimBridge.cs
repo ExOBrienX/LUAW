@@ -91,6 +91,14 @@ public sealed class FakeSimBridge : ISimBridge
     /// <summary>Aviones creados como Parked ATC (ObjectId).</summary>
     public HashSet<uint> ParkedAtc { get; } = [];
 
+    /// <summary>Cuánto tarda el "simulador" en ubicar un Parked ATC (tests de carga en paralelo); null = al instante.</summary>
+    public TimeSpan? ParkedAtcDelay { get; set; }
+
+    /// <summary>Máximo de Parked ATC pedidos a la vez sin respuesta (tests).</summary>
+    public int MaxParkedAtcInFlight { get; private set; }
+
+    private int _parkedAtcInFlight;
+
     public Task<ParkedAtcResult> SpawnParkedAtcAsync(ParkedAtcRequest request, CancellationToken ct)
     {
         if (ParkedAtcPlacement?.Invoke(request) is not { } place)
@@ -98,7 +106,18 @@ public sealed class FakeSimBridge : ISimBridge
         var id = _nextObjectId++;
         Spawned[id] = new ParkedSpawnRequest(request.Title, request.TailNumber, place.Position, 0, place.HeadingTrueDeg, request.EngineCount);
         ParkedAtc.Add(id);
-        return Task.FromResult(new ParkedAtcResult(id, place.Position, place.HeadingTrueDeg));
+        var result = new ParkedAtcResult(id, place.Position, place.HeadingTrueDeg);
+        if (ParkedAtcDelay is not { } delay)
+            return Task.FromResult(result);
+        MaxParkedAtcInFlight = Math.Max(MaxParkedAtcInFlight, ++_parkedAtcInFlight);
+        return Delayed();
+
+        async Task<ParkedAtcResult> Delayed()
+        {
+            await Task.Delay(delay, ct);
+            _parkedAtcInFlight--;
+            return result;
+        }
     }
 
     public async Task<uint> HandOverAsync(uint parkedAtcId, ParkedSpawnRequest replacement, CancellationToken ct)

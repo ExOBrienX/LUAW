@@ -75,7 +75,7 @@ public sealed partial class SimConnectBridge : ISimBridge
     public void Start()
     {
         if (_thread is not null)
-            throw new InvalidOperationException("El puente ya está iniciado.");
+            throw new InvalidOperationException(Tr.T("El puente ya está iniciado."));
         _thread = new Thread(Run) { Name = "SimConnect", IsBackground = true };
         _thread.Start();
     }
@@ -83,7 +83,7 @@ public sealed partial class SimConnectBridge : ISimBridge
     public Task<AirportData> LoadAirportAsync(string icao, CancellationToken ct)
     {
         if (!_connected)
-            throw new InvalidOperationException("No hay conexión con el simulador.");
+            throw new InvalidOperationException(Tr.T("No hay conexión con el simulador."));
 
         var request = new FacilityRequest(icao.ToUpperInvariant());
         if (ct.CanBeCanceled)
@@ -145,7 +145,7 @@ public sealed partial class SimConnectBridge : ISimBridge
                 Close();
             }
         }
-        FailPendingFacilities(new OperationCanceledException("El puente se cerró."));
+        FailPendingFacilities(new OperationCanceledException(Tr.T("El puente se cerró.")));
     }
 
     private bool TryOpen()
@@ -283,9 +283,9 @@ public sealed partial class SimConnectBridge : ISimBridge
         }
         _simVersion = null;
         SetConnected(false);
-        FailPendingFacilities(new InvalidOperationException("Se perdió la conexión con el simulador."));
+        FailPendingFacilities(new InvalidOperationException(Tr.T("Se perdió la conexión con el simulador.")));
         FailPendingWaypoints();
-        ResetTraffic(new InvalidOperationException("Se perdió la conexión con el simulador."));
+        ResetTraffic(new InvalidOperationException(Tr.T("Se perdió la conexión con el simulador.")));
     }
 
     private void FailPendingFacilities(Exception error)

@@ -110,7 +110,7 @@ public sealed partial class MainWindowViewModel
         // En pleno vuelo, el cambio de aeropuerto activo al destino (ADR-076) no rehace la sesión: es el mismo vuelo.
         if (_session is { Phase: >= PilotPhase.TakeoffCleared and < PilotPhase.Arrived } && Plan is not null)
         {
-            _stations = Airport is { } ap ? new AtcStations(ap, _atcData, _settings.AtcLanguage) : null;
+            _stations = Airport is { } ap ? new AtcStations(WithLearnedFrequencies(ap), _atcData, _settings.AtcLanguage) : null;
             ConfigureAiRadio();
             UpdateCommsView();
             return;
@@ -122,7 +122,7 @@ public sealed partial class MainWindowViewModel
         _engine?.Control.Tower.SetPilotHoldingPoint(null);
         if (_engine is { } e)
             e.Coordinator.PilotPriority = null;
-        _stations = Airport is { } a ? new AtcStations(a, _atcData, _settings.AtcLanguage) : null;
+        _stations = Airport is { } a ? new AtcStations(WithLearnedFrequencies(a), _atcData, _settings.AtcLanguage) : null;
         ConfigureAiRadio();
         if (Plan is { } p && Airport is { } airport && _graph is { } graph && _phrases is { } phrases && _stations is { } stations
             && string.Equals(p.Origin.Icao, airport.Icao, StringComparison.OrdinalIgnoreCase))
@@ -179,7 +179,8 @@ public sealed partial class MainWindowViewModel
             WatchLevel: () => _settings.ApproachWatch,
             EnginesRunning: () => UserState?.EnginesRunning,
             MagVarDeg: () => Weather?.MagVarDeg ?? 0,
-            ArrivalRunwayClearInS: () => _engine is { PilotArrival: not null } e2 ? e2.PilotRunwayClearInS : null), log: Log);
+            ArrivalRunwayClearInS: () => _engine is { PilotArrival: not null } e2 ? e2.PilotRunwayClearInS : null,
+            PilotWingspanM: () => UserWingspanM), log: Log);
 
     private double AtcAltitudeFt(Core.Simulation.UserAircraftState u) =>
         u.QnhAltitudeFt is { } q && u.PressureAltitudeFt is { } pa

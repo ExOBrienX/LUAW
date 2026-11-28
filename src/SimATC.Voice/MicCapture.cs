@@ -1,3 +1,4 @@
+using SimATC.Core.Text;
 using NAudio.Wave;
 
 namespace SimATC.Voice;
@@ -52,7 +53,7 @@ public sealed class MicCapture : IDisposable
         Close();
         var devices = Devices();
         if (devices.Count == 0)
-            throw new InvalidOperationException("Windows no informa ningún micrófono.");
+            throw new InvalidOperationException(Tr.T("Windows no informa ningún micrófono."));
         var index = deviceName is null ? -1 : devices.ToList().IndexOf(deviceName);
         // -1 es el "mapeador" de Windows: el micrófono predeterminado.
         var input = new WaveInEvent { DeviceNumber = index, WaveFormat = new WaveFormat(SampleRate, 16, 1), BufferMilliseconds = 50 };
@@ -64,10 +65,10 @@ public sealed class MicCapture : IDisposable
         catch (NAudio.MmException ex)
         {
             input.Dispose();
-            throw new InvalidOperationException($"No se pudo abrir el micrófono ({ex.Result}).", ex);
+            throw new InvalidOperationException(Tr.F("No se pudo abrir el micrófono ({0}).", ex.Result), ex);
         }
         _input = input;
-        OpenDevice = index >= 0 ? devices[index] : "predeterminado de Windows";
+        OpenDevice = index >= 0 ? devices[index] : Tr.T("predeterminado de Windows");
     }
 
     public void Close()

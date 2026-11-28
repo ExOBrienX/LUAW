@@ -1,3 +1,4 @@
+using SimATC.Core.Text;
 using Microsoft.FlightSimulator.SimConnect;
 using SimATC.Core.Geo;
 using SimATC.Core.World;
@@ -24,7 +25,7 @@ public sealed partial class SimConnectBridge
     public Task<IReadOnlyList<NavFix>> RequestAllNavaidsAsync(CancellationToken ct)
     {
         if (!_connected)
-            throw new InvalidOperationException("No hay conexión con el simulador.");
+            throw new InvalidOperationException(Tr.T("No hay conexión con el simulador."));
         var tcs = new TaskCompletionSource<IReadOnlyList<NavFix>>(TaskCreationOptions.RunContinuationsAsynchronously);
         RunOnSimThread(sim =>
         {

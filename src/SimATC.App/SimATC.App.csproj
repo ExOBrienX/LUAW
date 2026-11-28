@@ -38,5 +38,6 @@
     <AvaloniaResource Include="Assets\simatc.ico" />
     <AvaloniaResource Include="Assets\simatc-64.png" />
     <AvaloniaResource Include="Assets\luaw-logo.webp" />
+    <AvaloniaResource Include="Assets\Planes\*.png" />
   </ItemGroup>
 </Project>

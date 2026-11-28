@@ -23,13 +23,15 @@ public enum PilotTowerClearance
 /// </summary>
 public readonly record struct PilotRunwayStatus(int RunwayIndex, string? OccupiedBy, double WakeWaitS, string? SpacingBehind, bool PilotDeparted,
     int AheadCount = 0, bool AtHoldingPoint = true, string? OccupantType = null, bool OccupantDeparting = false,
-    double ArrivalInS = double.PositiveInfinity)
+    double ArrivalInS = double.PositiveInfinity, double OccupantWakeS = 0)
 {
     /// <summary>
     /// La próxima llegada a esa pista está lo bastante lejos para que el piloto entre, se alinee y despegue (ADR-129: en
     /// LEMG la Torre lo autorizó a despegar con un A319 en final corta de su misma pista; solo miraba las salidas).
     /// </summary>
-    public bool ArrivalAllowsLineUp => ArrivalInS >= TowerControl.PilotLineUpBeforeArrivalS;
+    /// Cuenta la espera por estela que falta (o la que dejará el pesado que despega delante, ADR-173: alineado detrás de un
+    /// B777 en EGLL, la llegada frustró mientras esperaba sus 2 minutos).
+    public bool ArrivalAllowsLineUp => ArrivalInS >= TowerControl.PilotLineUpBeforeArrivalS + Math.Max(WakeWaitS, OccupantWakeS);
 
     /// <summary>Ya alineado: la próxima llegada deja tiempo para la carrera de despegue.</summary>
     public bool ArrivalAllowsRoll => ArrivalInS >= TowerControl.TakeoffBeforeArrivalS;
@@ -213,9 +215,12 @@ public sealed class TowerControl
 
     private bool ArrivalAllows(DepartureAgent a, double minSeconds)
     {
-        if (ArrivalSeconds(a.RunwayIndex) >= minSeconds)
+        var s = ArrivalSeconds(a.RunwayIndex);
+        if (s >= minSeconds)
             return true;
         a.Hold = HoldKind.Runway;
+        a.RunwayHold = RunwayHold.Arrival;
+        a.HoldLeftS = s;
         return false;
     }
 
@@ -409,7 +414,8 @@ public sealed class TowerControl
             }
             _pilotStatus = new PilotRunwayStatus(r, occupiedBy, wakeWait, spacing, _pilotDepartedRunway == r, ahead,
                 _pilotQueuedAt is not null || _pilotHoldingPoint is null, occupant?.TypeDesignator,
-                occupant?.Phase is DeparturePhase.TakeoffRoll or DeparturePhase.Rotation, ArrivalSeconds(r));
+                occupant?.Phase is DeparturePhase.TakeoffRoll or DeparturePhase.Rotation, ArrivalSeconds(r),
+                occupant?.Wake is WakeCategory.Heavy or WakeCategory.Super ? WakeDelayS : 0);
         }
     }
 
@@ -425,9 +431,19 @@ public sealed class TowerControl
                 return false;
             if (_pilotClearance is PilotTowerClearance.LineUp or PilotTowerClearance.Takeoff)
                 return true;
+            // El que ya está en la pista sale primero aunque el piloto haya llegado antes a la fila (EGLL 2026-11-27: el
+            // piloto avisó "listo" con el IA ya alineado y se esperaban el uno al otro).
+            if (OnRunway(a))
+                return false;
             return _pilotClearance == PilotTowerClearance.Ready && _pilotQueuedAt is { } q
                 && (!_holdingSince.TryGetValue(a.ObjectId, out var since) || q < since);
         }
+    }
+
+    private bool PilotCleared(int runway)
+    {
+        lock (_pilotLock)
+            return _pilotRunway == runway && _pilotClearance is PilotTowerClearance.LineUp or PilotTowerClearance.Takeoff;
     }
 
     /// <summary>El piloto despegó de la pista de <paramref name="a"/> y todavía está a menos de 6000 ft de él.</summary>
@@ -461,6 +477,9 @@ public sealed class TowerControl
                 break;
             }
         }
+        // Autorizado a alinearse (también detrás del que despega) o a despegar en esa pista: no es una incursión (ADR-173).
+        if (userRunway >= 0 && PilotCleared(userRunway))
+            userRunway = -1;
         if (userRunway >= 0)
         {
             if (_userRunway != userRunway)
@@ -567,6 +586,7 @@ public sealed class TowerControl
             if (!ReferenceEquals(o, a) && o.CrossingRunway == a.RunwayIndex)
             {
                 a.Hold = HoldKind.Runway;
+                a.RunwayHold = RunwayHold.Occupied;
                 a.HoldFor = o.ObjectId;
                 return false;
             }
@@ -575,13 +595,21 @@ public sealed class TowerControl
                     || o.Phase == DeparturePhase.HoldingShort && (o.Clearances & ClearanceKind.LineUp) != 0))
             {
                 a.Hold = HoldKind.Runway;
+                a.RunwayHold = RunwayHold.Occupied;
                 a.HoldFor = o.ObjectId;
                 return false;
             }
         }
-        if (UserOnRunway(a, user) || PilotHasRunway(a))
+        if (UserOnRunway(a, user))
         {
             a.Hold = HoldKind.Runway;
+            a.RunwayHold = RunwayHold.UserOnRunway;
+            return false;
+        }
+        if (PilotHasRunway(a))
+        {
+            a.Hold = HoldKind.Runway;
+            a.RunwayHold = RunwayHold.PilotTurn;
             return false;
         }
         return true;
@@ -595,6 +623,7 @@ public sealed class TowerControl
         if (a.RunwayRemainingM < MinTakeoffRemainingM)
         {
             a.Hold = HoldKind.Runway;
+            a.RunwayHold = RunwayHold.ShortRunway;
             return false;
         }
         if (user is null && PilotTooClose(a))
@@ -610,6 +639,7 @@ public sealed class TowerControl
         {
             a.Hold = HoldKind.Wake;
             a.HoldFor = last.Agent.ObjectId;
+            a.HoldLeftS = WakeDelayS - (_time - last.LiftoffTime);
             return false;
         }
         // El anterior en el aire y a 6000 ft por la pista (si ya se retiró del motor, está lejos).

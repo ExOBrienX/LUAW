@@ -105,7 +105,10 @@ public class FirMapTests
         store.Add("SCEZ_CTR", "128.300", 6);
         store.Add("SCEZ_CTR", "120.000", 6);
         Assert.Equal(128_300, store.KhzFor(fir));
-        Assert.False(store.Add("SCEL_APP", "119.700", 5));
+        // ADR-173: la Aproximación también se guarda, pero no cuenta como Centro.
+        Assert.True(store.Add("SCEL_APP", "119.700", 5));
+        Assert.Equal(128_300, store.KhzFor(fir));
+        Assert.Equal(119_700, store.KhzForAirport("SCEL", "APP"));
         Assert.False(store.Add("SCEZ_CTR", "199.998", 6));
     }
 }

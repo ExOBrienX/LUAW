@@ -1,0 +1,23 @@
+{
+  "airport": "EGLL",
+  "seed": 1,
+  "hours": 1,
+  "runways": [
+    "auto"
+  ],
+  "departures": [],
+  "windFromDeg": 110,
+  "windKt": 8,
+  "flow": {
+    "startS": 0,
+    "intervalS": 100,
+    "maxOnGround": 24
+  },
+  "arrivals": {
+    "startS": 30,
+    "intervalS": 90,
+    "runways": [
+      "auto"
+    ]
+  }
+}

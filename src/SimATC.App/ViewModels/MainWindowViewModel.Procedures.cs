@@ -213,7 +213,7 @@ public sealed partial class MainWindowViewModel
         var listed = advice.Select(a => a.Procedure).ToHashSet();
         foreach (var p in all.Where(p => !listed.Contains(p)).OrderBy(p => p.Name))
         {
-            var other = new ProcedureAdvice(p.Name, false, [], ["no empalma con tu ruta"], [], 0) { Procedure = p };
+            var other = new ProcedureAdvice(p.Name, false, [], [Tr.T("no empalma con tu ruta")], [], 0) { Procedure = p };
             choices.Add(new Choice<ProcedureAdvice?>(other, Tr.F("{0} · no empalma con tu ruta", p.Name)));
         }
         var selected = choices.FirstOrDefault(c => c.Value?.Recommended == true) ?? choices[0];
@@ -239,7 +239,7 @@ public sealed partial class MainWindowViewModel
         foreach (var c in choices)
         {
             if (c.Value is not { } a || ReferenceEquals(a, chosen) || (a.Pros.Count == 0 && a.Notes.Count == 0 && a.Cons.Count == 1
-                    && a.Cons[0] == "no empalma con tu ruta"))
+                    && a.Cons[0] == Tr.T("no empalma con tu ruta")))
                 continue;
             var reason = a.Cons.Count > 0 ? $"✗ {a.Cons[0]}" : a.Notes.Count > 0 ? $"• {a.Notes[0]}" : Tr.T("✓ también sirve");
             others.Add($"{a.Name}: {reason}{(a.LengthNm > 0 ? $" ({a.LengthNm:0} NM)" : "")}");

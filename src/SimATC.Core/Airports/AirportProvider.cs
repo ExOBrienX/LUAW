@@ -77,7 +77,7 @@ public sealed class AirportProvider
     public async Task<(AirportData Airport, bool FromCache)> GetAsync(string icao, bool forceRefresh, CancellationToken ct)
     {
         var simVersion = _bridge.SimVersion
-            ?? throw new InvalidOperationException("Sin versión del simulador: el puente no está conectado.");
+            ?? throw new InvalidOperationException(Tr.T("Sin versión del simulador: el puente no está conectado."));
 
         if (!forceRefresh && _cache.TryLoad(icao, simVersion) is { } cached)
             return (cached, true);

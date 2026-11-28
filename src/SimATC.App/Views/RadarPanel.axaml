@@ -36,7 +36,7 @@
         </Style>
     </UserControl.Styles>
     <Panel Background="{StaticResource BgRadar}">
-        <radar:RadarView x:Name="Radar" Airport="{Binding Airport}" UserState="{Binding UserState}" TransitionAltitudeFt="{Binding TransitionAltitudeFt}" Traffic="{Binding Traffic}"
+        <radar:RadarView x:Name="Radar" Airport="{Binding Airport}" UserState="{Binding UserState}" UserWingspanM="{Binding PilotWingspanM}" UserShape="{Binding PilotShape}" TransitionAltitudeFt="{Binding TransitionAltitudeFt}" Traffic="{Binding Traffic}"
                          SelectedId="{Binding SelectedId}" FollowSelected="{Binding FollowSelected}"
                          SelectedRoute="{Binding SelectedRoute}" SelectedFlight="{Binding SelectedFlight}" UserRoute="{Binding UserRoute}"
                          UserHoldShort="{Binding UserHoldShort}" PlanRoute="{Binding PlanRoute}"

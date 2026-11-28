@@ -56,6 +56,8 @@ public static class ProcedureGeometry
         var heading = startHeadingDeg;
         var alt = startAltFt;
         var exact = new List<GeoPoint>();
+        // Después de un tramo "hasta vectores" no se sabe por dónde llega al punto siguiente: va punteado (aproximado).
+        var afterVectors = false;
         if (cur is { } s0)
             exact.Add(s0);
 
@@ -103,12 +105,18 @@ public static class ProcedureGeometry
                     exact.Add(fix);
                     heading = GeoMath.InitialBearingDeg(turn[^1], fix);
                 }
+                else if (afterVectors && cur is { } cv)
+                {
+                    heading = GeoMath.InitialBearingDeg(cv, fix);
+                    AddApprox([cv, fix]);
+                }
                 else
                 {
                     if (cur is { } c3 && GeoMath.DistanceM(c3, fix) > 1)
                         heading = GeoMath.InitialBearingDeg(c3, fix);
                     exact.Add(fix);
                 }
+                afterVectors = false;
                 cur = fix;
                 waypoints.Add(new ShapeWaypoint(leg.FixIcao, fix, Join(altText, speedText), false, leg));
                 if (leg.AltitudeConstraint != AltitudeConstraint.None)
@@ -120,7 +128,8 @@ public static class ProcedureGeometry
                     AddApprox(manual);
                     cur = manual[^1];
                     heading = leg.CourseDeg;
-                    waypoints.Add(new ShapeWaypoint("vectores", manual[^1], "aprox.", true));
+                    waypoints.Add(new ShapeWaypoint(Tr.T("vectores"), manual[^1], Tr.T("aprox."), true));
+                    afterVectors = true;
                 }
                 continue;
             }
@@ -140,7 +149,7 @@ public static class ProcedureGeometry
             else
             {
                 distance = StubM;
-                label = leg.Type is LegType.VM or LegType.FM ? "vectores" : "";
+                label = leg.Type is LegType.VM or LegType.FM ? Tr.T("vectores") : "";
             }
             // Con su viraje estimado desde el rumbo que traía (ADR-102: antes partía en el rumbo nuevo, con un quiebre).
             var pts = TurnThenStraight(from, heading, course, leg.Turn, distance);
@@ -148,8 +157,9 @@ public static class ProcedureGeometry
             AddApprox(pts);
             cur = end;
             heading = course;
+            afterVectors = leg.Type is LegType.VM or LegType.FM;
             if (label.Length > 0)
-                waypoints.Add(new ShapeWaypoint(label, end, "aprox.", true));
+                waypoints.Add(new ShapeWaypoint(label, end, Tr.T("aprox."), true));
         }
         Flush();
         return new ProcedureShape(segments, waypoints, rows);

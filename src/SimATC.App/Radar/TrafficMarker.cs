@@ -4,10 +4,11 @@ namespace SimATC.App.Radar;
 
 /// <summary>
 /// Un avión de tráfico para dibujar en el radar. <paramref name="Id"/> es su ObjectId (para seleccionarlo);
-/// <paramref name="Holding"/>: detenido esperando algo (se dibuja en ámbar).
+/// <paramref name="Holding"/>: detenido esperando algo (se dibuja en ámbar). <paramref name="WingspanM"/>: envergadura de su
+/// modelo (m, 0 si no se conoce), para dibujarlo a escala con zoom cercano (ADR-173).
 /// </summary>
 public sealed record TrafficMarker(GeoPoint Position, double HeadingTrueDeg, string Label, uint Id = 0, bool Holding = false,
-    double SpeedKt = 0);
+    double SpeedKt = 0, double WingspanM = 0, SimATC.Core.Fleet.AircraftShape Shape = SimATC.Core.Fleet.AircraftShape.Narrow);
 
 /// <summary>Un punto de la ruta del plan de vuelo para el radar (posición y nombre).</summary>
 public sealed record PlanPoint(GeoPoint Position, string Name);

@@ -1,3 +1,4 @@
+using SimATC.Core.Text;
 using System.Globalization;
 
 namespace SimATC.Core.Simulation;
@@ -36,10 +37,10 @@ public static class AircraftLoadPlanner
             stations[i] = cargo.Count > 0 ? r.PayloadLbs / cargo.Count : 0;
         var inv = CultureInfo.InvariantCulture;
         var loadedLbs = (2 * wing + center) * lbsPerGal;
-        var summary = string.Format(inv, "combustible {0:N0} kg (alas {1:N0} + {1:N0} gal, central {2:N0} gal), carga {3:N0} kg en {4} de {5} estaciones",
+        var summary = string.Format(inv, Tr.T("combustible {0:N0} kg (alas {1:N0} + {1:N0} gal, central {2:N0} gal), carga {3:N0} kg en {4} de {5} estaciones"),
             loadedLbs * 0.45359237, wing, center, r.PayloadLbs * 0.45359237, cargo.Count, count);
         if (loadedLbs + 1 < r.FuelLbs)
-            summary += string.Format(inv, " · no cabe todo el combustible: faltan {0:N0} kg", (r.FuelLbs - loadedLbs) * 0.45359237);
+            summary += string.Format(inv, Tr.T(" · no cabe todo el combustible: faltan {0:N0} kg"), (r.FuelLbs - loadedLbs) * 0.45359237);
         return new AircraftLoadPlan(wing, wing, center, stations, summary);
     }
 }

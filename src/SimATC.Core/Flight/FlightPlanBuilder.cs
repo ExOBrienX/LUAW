@@ -100,6 +100,10 @@ public static class FlightPlanBuilder
         return ResolvedRoute.Direct;
     }
 
+    // Rutas de VATSIM ya descartadas en esta sesión (origen-destino|texto): no se vuelven a expandir ni a anotar en el log
+    // cada vez que se rehace el tráfico de la zona (vuelo EGLL-EDDF: las mismas, cada pocos minutos).
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> Rejected = new(StringComparer.Ordinal);
+
     private static async Task<ResolvedRoute?> VatsimRouteAsync(FlightEnds e, AirwayDatabase db, NavIndex? nav, VatsimRouteStore store,
         Action<string>? log, CancellationToken ct)
     {
@@ -107,6 +111,9 @@ public static class FlightPlanBuilder
         var gcNm = GeoMath.DistanceM(e.OriginPosition, e.DestinationPosition) / Nm;
         foreach (var text in store.RoutesFor(e.OriginIcao, e.DestinationIcao).Take(3))
         {
+            var key = $"{e.OriginIcao}-{e.DestinationIcao}|{text}";
+            if (Rejected.ContainsKey(key))
+                continue;
             var tokens = VatsimRouteStore.Tokens(text);
             if (tokens.Count == 0)
                 continue;
@@ -120,12 +127,14 @@ public static class FlightPlanBuilder
             var steps = await RouteExpander.ExpandAsync(db, body, hints, ct, nav: nav, origin: e.OriginPosition).ConfigureAwait(false);
             if (steps is null)
             {
+                Rejected.TryAdd(key, 0);
                 log?.Invoke(Tr.F("{0}-{1}: ruta de VATSIM sin fijos conocidos ({2}).", e.OriginIcao, e.DestinationIcao, text));
                 continue;
             }
             var fixes = WithoutReversals(steps.Select(s => new RouteFix(s.Fix.Icao, s.Fix.Region, s.Fix.Position, s.Airway)).ToList(), e);
             if (!Plausible(e, fixes, gcNm, out var why))
             {
+                Rejected.TryAdd(key, 0);
                 log?.Invoke(Tr.F("{0}-{1}: ruta de VATSIM descartada ({2}): {3}.", e.OriginIcao, e.DestinationIcao, why, string.Join(" ", fixes.Select(f => f.Ident))));
                 continue;
             }
@@ -285,6 +294,9 @@ public static class FlightPlanBuilder
             log?.Invoke(Tr.F("{0}-{1}: sin fijo con aerovías cerca de {2}.", e.OriginIcao, e.DestinationIcao, (start is null ? Tr.F("la salida ({0})", exit?.Ident ?? Tr.T("sin SID")) : Tr.F("la llegada ({0})", entry?.Ident ?? Tr.T("sin STAR")))));
             return null;
         }
+        var rejectedKey = $"aw|{e.OriginIcao}-{e.DestinationIcao}|{start.Icao}|{goalFix.Icao}";
+        if (Rejected.ContainsKey(rejectedKey))
+            return null;
         var cruise = FlightPlanner.CruiseAltitude(PerformanceCategory.MediumJet, gcNm);
         // Con las aerovías ya descargadas (ADR-064) cada paso es instantáneo: se puede explorar mucho.
         var limit = (int)Math.Clamp(gcNm * 4, 500, 20_000);
@@ -302,6 +314,7 @@ public static class FlightPlanBuilder
         }
         if (steps is null || steps.Count < 2)
         {
+            Rejected.TryAdd(rejectedKey, 0);
             log?.Invoke(Tr.F("{0}-{1}: sin camino por aerovías de {2} a {3} ({4} fijos conocidos).", e.OriginIcao, e.DestinationIcao, start.Icao, goalFix.Icao, db.Count));
             return null;
         }
@@ -311,6 +324,7 @@ public static class FlightPlanBuilder
         fixes = WithoutReversals(fixes, e);
         if (!Plausible(e, fixes, gcNm, out var why))
         {
+            Rejected.TryAdd(rejectedKey, 0);
             log?.Invoke(Tr.F("{0}-{1}: ruta por aerovías descartada ({2}; de {3} ", e.OriginIcao, e.DestinationIcao, why, start.Icao) +
                         $"({start.Position.LatDeg:0.0},{start.Position.LonDeg:0.0}) a {goalFix.Icao} ({target.LatDeg:0.0},{target.LonDeg:0.0})): " +
                         string.Join(" ", fixes.Take(40).Select(f => $"{f.Ident}({f.Position.LatDeg:0.0},{f.Position.LonDeg:0.0})")));

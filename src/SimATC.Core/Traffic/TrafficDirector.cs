@@ -1491,7 +1491,7 @@ public sealed class TrafficDirector
     {
         if (f.Landing is not { } l || f.StandIndex < 0 || f.Model is not { } model)
         {
-            _log(Tr.F("{0}: aterrizó sin {1}; no rueda a un puesto.", f.Callsign, (f.Landing is null ? "pista" : f.StandIndex < 0 ? "puesto" : "modelo")));
+            _log(Tr.F("{0}: aterrizó sin {1}; no rueda a un puesto.", f.Callsign, (f.Landing is null ? Tr.T("pista") : f.StandIndex < 0 ? Tr.T("puesto") : Tr.T("modelo"))));
             return null;
         }
         // El puesto se vuelve a revisar al aterrizar (alguien pudo estacionarse cerca mientras volaba).

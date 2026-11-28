@@ -191,6 +191,38 @@ vm.InspectorRows =
 ];
 Shot("18-ficha-ia");
 vm.SelectedId = null;
+vm.InspectorOpen = false;
+
+// ADR-173: con zoom cercano, cada avión a su tamaño real con su silueta (el tuyo como A330; IA bimotor, ancho y cuatrimotor).
+{
+    var radar = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(window).OfType<SimATC.App.Radar.RadarView>().First(r => r.IsEffectivelyVisible);
+    radar.UserWingspanM = 60.3; // TEST DATA: A330 (sin catálogo, la app usaría los 36 m supuestos)
+    radar.UserShape = SimATC.Core.Fleet.AircraftShape.Wide;
+    var behind = SimATC.Core.Geo.GeoMath.Destination(stand.Position, stand.HeadingTrueDeg + 180, 75);
+    var beside = SimATC.Core.Geo.GeoMath.Destination(stand.Position, stand.HeadingTrueDeg + 90, 55);
+    vm.SelectedId = SimATC.App.Radar.RadarView.UserId;
+    radar.FollowSelected = true;
+    typeof(SimATC.App.Radar.RadarView).GetField("_scale", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+        .SetValue(radar, 3.2);
+    Pump(600);
+    vm.InspectorOpen = false;
+    // Sin simulador el tráfico se refresca vacío: los IA de ejemplo van directo al radar, justo antes de la captura.
+    var far = SimATC.Core.Geo.GeoMath.Destination(stand.Position, stand.HeadingTrueDeg + 140, 120);
+    SimATC.Core.Geo.GeoPoint At(double bearing, double m) => SimATC.Core.Geo.GeoMath.Destination(stand.Position, stand.HeadingTrueDeg + bearing, m);
+    var wide = SimATC.Core.Fleet.AircraftShape.Wide;
+    radar.Traffic =
+    [
+        new SimATC.App.Radar.TrafficMarker(behind, stand.HeadingTrueDeg, "AAL79 B77W", 1, WingspanM: 64.8, Shape: wide), // TEST DATA
+        new SimATC.App.Radar.TrafficMarker(beside, stand.HeadingTrueDeg, "IBE3217 A320", 2, WingspanM: 35.8), // TEST DATA
+        new SimATC.App.Radar.TrafficMarker(far, stand.HeadingTrueDeg + 90, "BAW15 A388", 3, WingspanM: 79.8, Shape: SimATC.Core.Fleet.AircraftShape.Quad), // TEST DATA
+        new SimATC.App.Radar.TrafficMarker(At(-90, 55), stand.HeadingTrueDeg, "AFR12 AT76", 4, WingspanM: 27.1, Shape: SimATC.Core.Fleet.AircraftShape.Turboprop), // TEST DATA
+        new SimATC.App.Radar.TrafficMarker(At(-60, 95), stand.HeadingTrueDeg, "N123 LJ45", 5, true, WingspanM: 14.6, Shape: SimATC.Core.Fleet.AircraftShape.Bizjet), // TEST DATA
+        new SimATC.App.Radar.TrafficMarker(At(-35, 120), stand.HeadingTrueDeg, "N456 C172", 6, WingspanM: 11.0, Shape: SimATC.Core.Fleet.AircraftShape.Light), // TEST DATA
+    ];
+    Shot("20-radar-a-escala");
+    radar.FollowSelected = false;
+    vm.SelectedId = null;
+}
 
 // Ventana de pushback (planificador) y panel compacto, cada una en su propia ventana.
 var graph = SimATC.Core.Taxi.TaxiGraph.Build(scel);

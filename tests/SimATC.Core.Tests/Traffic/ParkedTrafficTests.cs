@@ -88,6 +88,33 @@ public class ParkedTrafficTests
         Assert.Equal(1, bridge.InjectedCount);
     }
 
+    // ADR-172: de a uno, 95 aviones con pasarela tardaban 3 minutos (cada uno espera ~2 s a que el simulador lo ubique).
+    [Fact]
+    public async Task Populate_AsksParkedAtcInParallel_AndNeverRepeatsAStand()
+    {
+        using var bridge = new FakeSimBridge(default);
+        bridge.Start();
+        var airport = TestAirports.Small();
+        // El "simulador" tarda y deja a los dos en el mismo puesto; pedido otra vez, el segundo va al otro puesto.
+        var calls = 0;
+        bridge.ParkedAtcPlacement = _ => ++calls <= 2
+            ? (airport.Parkings[1].Position, airport.Parkings[1].HeadingTrueDeg)
+            : (airport.Parkings[0].Position, airport.Parkings[0].HeadingTrueDeg);
+        bridge.ParkedAtcDelay = TimeSpan.FromMilliseconds(300);
+        var traffic = new ParkedTraffic();
+
+        var created = await traffic.PopulateAsync(bridge, airport, Routes, Matcher, TrafficLimits.Default, 2, null, _ => { },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, created);
+        Assert.Equal(2, bridge.MaxParkedAtcInFlight);
+        var items = traffic.Snapshot();
+        Assert.Equal([0, 1], items.Select(i => i.Aircraft.ParkingIndex).Order());
+        Assert.All(items, i => Assert.True(i.IsParkedAtc));
+        Assert.Equal(3, calls);
+        Assert.Equal(2, bridge.InjectedCount);  // el Parked ATC repetido se borró
+    }
+
     // Visto en el simulador: estacionar más aviones borraba también los que estaban saliendo.
     [Fact]
     public async Task Populate_KeepsAircraftThatAreAlreadyDeparting_AndTheirStands()

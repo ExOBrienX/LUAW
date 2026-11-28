@@ -483,7 +483,7 @@ public class ScelGroundTests
 
         Assert.Equal(HoldKind.UserAircraft, a.Hold);
         Assert.True(a.Phase == DeparturePhase.Taxi && a.SpeedKt < 0.1, $"{a.Phase} a {a.SpeedKt:F1} kt");
-        Assert.True(closest >= GroundCoordinator.FollowGapM + TrafficEngine.UserWingspanM / 2, $"llegó a {closest:F0} m del piloto");
+        Assert.True(closest >= GroundCoordinator.FollowGapM + TrafficEngine.DefaultUserWingspanM / 2, $"llegó a {closest:F0} m del piloto");
     }
 
     [Theory]
@@ -824,6 +824,32 @@ public class ScelGroundTests
         h.Bridge.State = h.Bridge.State with { OnGround = false, AltitudeAglFt = 3000 };
         h.Bridge.Emit();
         h.Run(900, until: () => a.Phase == DeparturePhase.Climb);
+        Assert.Equal(DeparturePhase.Climb, a.Phase);
+    }
+
+    /// <summary>
+    /// Prueba de Marco (EGLL, 2026-11-27): el piloto llegó a su punto de espera antes que el IA, pero avisó "listo" cuando
+    /// el IA ya estaba alineado. El IA esperaba al piloto (llegó antes a la fila) y al piloto le decían que esperara al IA
+    /// (en la pista): nadie salía. El que ya está en la pista sale primero.
+    /// </summary>
+    [Fact]
+    public void An_ai_already_lined_up_departs_before_a_pilot_who_reports_ready_later()
+    {
+        var h = new Harness();
+        var a = h.Add("Gate", 14, "17R");
+        var tower = h.Engine.Control.Tower;
+        var (r, _) = RunwayEnd("17R");
+        var spot = Scel.Value.Parkings.First(p => p.Name.ToString() == "GateW" && p.Number == 11).Position;
+        h.Bridge.State = h.Bridge.State with { Position = spot, OnGround = true };
+        h.Bridge.Emit();
+        tower.SetPilotHoldingPoint(spot);
+        tower.SetPilot(r, PilotTowerClearance.None); // en su punto de espera, todavía sin llamar a la Torre
+        h.Run(1);
+
+        h.Run(2400, until: () => a.Phase == DeparturePhase.LinedUp);
+        Assert.Equal(DeparturePhase.LinedUp, a.Phase);
+        tower.SetPilot(r, PilotTowerClearance.Ready);
+        h.Run(300, until: () => a.Phase == DeparturePhase.Climb);
         Assert.Equal(DeparturePhase.Climb, a.Phase);
     }
 

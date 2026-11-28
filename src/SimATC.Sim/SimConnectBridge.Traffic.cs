@@ -149,7 +149,7 @@ public sealed partial class SimConnectBridge
     private void EnsureConnected()
     {
         if (!_connected)
-            throw new InvalidOperationException("No hay conexión con el simulador.");
+            throw new InvalidOperationException(Tr.T("No hay conexión con el simulador."));
     }
 
     private void Enqueue(Action<SimConnect> command)
@@ -208,7 +208,7 @@ public sealed partial class SimConnectBridge
         if (_enumeration is { } en && now >= en.DeadlineTicks)
         {
             _enumeration = null;
-            en.Completion.TrySetException(new TimeoutException("El simulador no entregó la lista de modelos."));
+            en.Completion.TrySetException(new TimeoutException(Tr.T("El simulador no entregó la lista de modelos.")));
         }
 
         for (var i = _parkedStateQueue.Count - 1; i >= 0; i--)

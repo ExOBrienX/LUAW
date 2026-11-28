@@ -1,3 +1,4 @@
+using SimATC.Core.Text;
 using SimATC.Core.Airports;
 
 namespace SimATC.Core.Simulation;
@@ -149,7 +150,7 @@ public interface ISimBridge : IDisposable
 }
 
 public sealed class AirportNotFoundException(string icao)
-    : Exception($"El simulador no devolvió datos para el aeropuerto '{icao}'.")
+    : Exception(Tr.F("El simulador no devolvió datos para el aeropuerto '{0}'.", icao))
 {
     public string Icao { get; } = icao;
 }

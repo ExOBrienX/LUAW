@@ -141,7 +141,7 @@ public sealed partial class MainWindowViewModel
         {
             _bridge.AirborneVelocities = value;
             OnPropertyChanged();
-            Log(Tr.F("Diagnóstico: IA en vuelo {0} velocidades escritas.", (value ? "con" : "sin")));
+            Log(Tr.F("Diagnóstico: IA en vuelo {0} velocidades escritas.", (value ? Tr.T("con") : Tr.T("sin"))));
         }
     }
 

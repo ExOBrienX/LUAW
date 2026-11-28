@@ -373,7 +373,10 @@ public sealed class DepartureAgent
             return double.PositiveInfinity;
         var c = _crossings[CrossingsDone];
         if (_ground.Progress >= c.HoldS - 60 && Hold == HoldKind.None)
+        {
             Hold = HoldKind.Runway;
+            RunwayHold = RunwayHold.Crossing;
+        }
         return c.HoldS;
     }
 
@@ -560,6 +563,12 @@ public sealed class DepartureAgent
     /// <summary>Por qué está detenido o esperando (para el radar y el log), y por quién.</summary>
     public HoldKind Hold { get; internal set; }
     public uint HoldFor { get; internal set; }
+
+    /// <summary>Detalle de la espera de pista (<see cref="HoldKind.Runway"/>).</summary>
+    public RunwayHold RunwayHold { get; internal set; }
+
+    /// <summary>Segundos que le quedan a la espera si se saben (estela, llegada); NaN si no.</summary>
+    public double HoldLeftS { get; internal set; } = double.NaN;
 
     /// <summary>true mientras usa la ruta de rodaje (de fin del pushback a la pista).</summary>
     public bool OnTaxiPath => Phase is DeparturePhase.PushbackComplete or DeparturePhase.Taxi or DeparturePhase.HoldingShort

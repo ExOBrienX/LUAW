@@ -50,7 +50,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _airports = airports;
         _dataDir = dataDir;
         bridge.ConnectionChanged += c => Dispatcher.UIThread.Post(() => OnConnectionChanged(c));
-        bridge.UserStateUpdated += s => Dispatcher.UIThread.Post(() => UserState = s);
+        bridge.UserStateUpdated += s => Dispatcher.UIThread.Post(() =>
+        {
+            UserState = s;
+            PilotWingspanM = UserWingspanM;
+            PilotShape = AircraftShapes.Of(_userSpan.Type, _userSpan.SpanM, _userSpan.Engines);
+            if (_engine is { } e)
+                e.UserWingspanM = PilotWingspanM;
+        });
         // El radar se refresca a 5 Hz mientras haya aviones moviéndose.
         _refresh.Tick += (_, _) =>
         {
@@ -453,7 +460,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         var parked = _parked.Snapshot();
         var markers = parked
-            .Select(p => new TrafficMarker(p.Position, p.HeadingDeg, $"{p.Aircraft.Airline} {p.Aircraft.Type}", p.ObjectId))
+            .Select(p => new TrafficMarker(p.Position, p.HeadingDeg, $"{p.Aircraft.Airline} {p.Aircraft.Type}", p.ObjectId,
+                WingspanM: p.Aircraft.Match.Model.WingspanM,
+                Shape: AircraftShapes.Of(p.Aircraft.Type, p.Aircraft.Match.Model.WingspanM, p.Aircraft.Match.Model.EngineCount)))
             .ToList();
         var moving = _engine?.Snapshot() ?? [];
         foreach (var a in moving)
@@ -463,7 +472,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             var label = a.Airborne
                 ? Tr.F("{0} {1} {2:0} kt · {3} · {4}", a.Callsign, FlightLevelText(a.AltitudeFt), a.SpeedKt, PhaseText(a.Phase), a.Destination)
                 : Tr.F("{0} {1:0} kt{2} · {3}{4}", a.Callsign, a.SpeedKt, (a.AglFt > 20 ? $" {a.AglFt:0} ft" : ""), PhaseText(a.Phase), hold);
-            markers.Add(new TrafficMarker(a.Position, a.HeadingDeg, label, a.ObjectId, waiting, a.SpeedKt));
+            markers.Add(new TrafficMarker(a.Position, a.HeadingDeg, label, a.ObjectId, waiting, a.SpeedKt, a.WingspanM,
+                AircraftShapes.Of(a.Type, a.WingspanM, a.Engines)));
         }
         Traffic = markers;
         UpdateInspector(parked, moving);
@@ -508,7 +518,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             InspectorPhase = PhaseText(snap.Phase);
             InspectorAltitude = snap.AglFt > 20 ? $"{snap.AglFt:N0} ft" : Tr.T("en tierra");
             InspectorSpeed = $"{snap.SpeedKt:0} kt";
-            InspectorWait = snap.Hold == HoldKind.None ? null : HoldText(snap.Hold, snap.HoldFor);
+            InspectorWait = snap.Hold == HoldKind.None ? null : WaitWithTime(snap);
             InspectorWaitId = snap.HoldFor is { } by && Array.Find(moving, m => m.Callsign == by) is { Callsign: not null } other ? other.ObjectId : null;
             InspectorRows =
             [
@@ -527,7 +537,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             InspectorPhase = PhaseText(snap.Phase);
             InspectorAltitude = Tr.T("en tierra");
             InspectorSpeed = $"{snap.SpeedKt:0} kt";
-            InspectorWait = snap.Hold == HoldKind.None ? null : HoldText(snap.Hold, snap.HoldFor);
+            InspectorWait = snap.Hold == HoldKind.None ? null : WaitWithTime(snap);
             InspectorWaitId = null;
             InspectorRows = Details(sel, parked).Rows;
             SelectedRoute = RouteAhead(inbound);
@@ -610,17 +620,52 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _ => "",
     };
 
-    private static string HoldText(HoldKind hold, string? who) => hold switch
+    private static string HoldText(AgentSnapshot s)
     {
-        HoldKind.Intersection => Tr.F("Espera el cruce{0}", (who is null ? "" : Tr.F(" (lo tiene {0})", who))),
-        HoldKind.Traffic => Tr.F("Mantiene distancia con {0}", who ?? Tr.T("el de adelante")),
-        HoldKind.UserAircraft => Tr.T("Tu avión está en su ruta"),
-        HoldKind.PushbackTraffic => Tr.F("Pushback en espera por tráfico{0}", (who is null ? "" : $" ({who})")),
-        HoldKind.Runway => Tr.F("Espera la pista{0}", (who is null ? " (ocupada)" : Tr.F(" ({0} en la pista)", who))),
-        HoldKind.DepartureSeparation => Tr.F("Separación con la salida anterior{0}", (who is null ? "" : $" ({who})")),
-        HoldKind.Wake => Tr.F("Estela: 2 min detrás de {0}", who ?? Tr.T("un pesado")),
-        _ => "",
-    };
+        var who = s.HoldFor;
+        return s.Hold switch
+        {
+            HoldKind.Intersection => Tr.F("Espera el cruce{0}", (who is null ? "" : Tr.F(" (lo tiene {0})", who))),
+            HoldKind.Traffic => Tr.F("Mantiene distancia con {0}", who ?? Tr.T("el de adelante")),
+            HoldKind.UserAircraft => Tr.T("Tu avión está en su ruta"),
+            HoldKind.PushbackTraffic => Tr.F("Pushback en espera por tráfico{0}", (who is null ? "" : $" ({who})")),
+            HoldKind.Runway => s.RunwayHold switch
+            {
+                RunwayHold.Arrival => Tr.T("Espera la pista: llega un avión a aterrizar"),
+                RunwayHold.UserOnRunway => Tr.T("Espera la pista: tu avión está en ella"),
+                RunwayHold.PilotTurn => Tr.T("Espera la pista: es tu turno (llegaste antes o estás autorizado)"),
+                RunwayHold.ShortRunway => Tr.T("Espera: le queda poca pista para despegar"),
+                RunwayHold.Crossing => Tr.T("Espera para cruzar la pista"),
+                _ => who is null ? Tr.T("Espera la pista (ocupada)") : Tr.F("Espera la pista: {0} está en ella", who),
+            },
+            HoldKind.DepartureSeparation => Tr.F("Separación con la salida anterior{0}", (who is null ? "" : $" ({who})")),
+            HoldKind.Wake => Tr.F("Estela turbulenta detrás de {0}", who ?? Tr.T("un pesado")),
+            _ => "",
+        };
+    }
+
+    private (uint Id, HoldKind Hold, RunwayHold Detail, DateTime Since) _waitClock;
+
+    /// <summary>
+    /// El motivo de la espera del avión elegido con su tiempo: lo que falta si se sabe (estela, llegada) o cuánto lleva
+    /// esperando.
+    /// </summary>
+    private string WaitWithTime(AgentSnapshot s)
+    {
+        var now = DateTime.UtcNow;
+        if (_waitClock.Id != s.ObjectId || _waitClock.Hold != s.Hold || _waitClock.Detail != s.RunwayHold)
+            _waitClock = (s.ObjectId, s.Hold, s.RunwayHold, now);
+        var text = HoldText(s);
+        if (!double.IsNaN(s.HoldLeftS) && !double.IsInfinity(s.HoldLeftS))
+            return Tr.F("{0} · faltan {1}", text, Clock(Math.Max(0, s.HoldLeftS)));
+        return Tr.F("{0} · esperando hace {1}", text, Clock((now - _waitClock.Since).TotalSeconds));
+    }
+
+    private static string Clock(double seconds)
+    {
+        var t = (int)Math.Round(seconds);
+        return $"{t / 60}:{t % 60:00}";
+    }
 
     private void SetBusy(bool busy)
     {

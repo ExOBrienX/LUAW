@@ -39,6 +39,8 @@ Simulator, as other community add-ons do. All rights belong to Microsoft.
 | `data/airlines.json` (airline telephony) | Wikipedia, "List of airline codes"; [OpenFlights](https://openflights.org/data) airline database | CC BY-SA 4.0 (Wikipedia contributors); ODbL 1.0 (OpenFlights). This file is a derived database and is offered under the same terms. |
 | `data/routes` (airlines and destinations) | Wikipedia airport articles | CC BY-SA 4.0, © Wikipedia contributors |
 | `data/world` (routes by callsign, airports) | [vradarserver/standing-data](https://github.com/vradarserver/standing-data) | CC0 1.0 |
+| `data/world/airport-frequencies.csv.gz` (approach, departure and center frequencies by airport) | [OurAirports](https://github.com/davidmegginson/ourairports-data) `airport-frequencies.csv` | The Unlicense (public domain) |
+| `data/world/vatsim-frequencies-seed.json` (center and approach frequencies seen online) | [VATSIM](https://vatsim.net) public data feed | VATSIM data, non-commercial use |
 | `data/map/world-50m.json` (coastlines and borders) | [Natural Earth](https://www.naturalearthdata.com/) 1:50m | Public domain |
 | `data/atc`, `data/centers.json` (Chilean ATC data) | AIP-CHILE, DGAC Chile | Public aeronautical information; cited in each file |
 

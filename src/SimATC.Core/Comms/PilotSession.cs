@@ -116,7 +116,9 @@ public sealed record DepartureContext(
     // Algún motor encendido (el copiloto pide el rodaje solo con motores, PLAN-PULIDO bloque 1); null si no se sabe.
     Func<bool?>? EnginesRunning = null,
     // Segundos para que la pista de llegada quede libre para el piloto (ADR-120); null o infinito si no se sabe.
-    Func<double?>? ArrivalRunwayClearInS = null);
+    Func<double?>? ArrivalRunwayClearInS = null,
+    // Envergadura del avión del piloto (m), según su tipo (ADR-173); null = la supuesta.
+    Func<double>? PilotWingspanM = null);
 
 /// <summary>
 /// Respuesta de la app al pedido de pista del piloto (ADR-097): aprobada (la llegada ya se rearmó con esa pista) o no, con
@@ -272,6 +274,12 @@ public sealed partial class PilotSession(DepartureContext ctx, Random? random = 
     public AtcStation? DepartureStation => Clearance?.Next ?? ctx.Stations.For(AtcRole.Departure) ?? AreaCenter;
 
     private AtcStation? _areaCenter;
+
+    /// <summary>Sin nadie a quien pasarlo, a esta altura sobre el aeropuerto (ft) el vuelo sigue sin ATC.</summary>
+    public const double UncontrolledAfterAglFt = 1500;
+
+    /// <summary>En vuelo y sin dependencia: nadie lo controla hasta que aparezca un Centro o la Aproximación del destino.</summary>
+    public bool Uncontrolled => Phase is PilotPhase.WithApproach or PilotPhase.EnRoute && FlightStation is null;
 
     /// <summary>El Centro de la zona del aeropuerto de salida (FIR de VATSpy), leído una vez que existe.</summary>
     private AtcStation? AreaCenter => _areaCenter ??= ctx.CenterAt?.Invoke(ctx.Airport.Reference);
@@ -915,6 +923,14 @@ public sealed partial class PilotSession(DepartureContext ctx, Random? random = 
                 return [Instruction(tower, "atc.hold_position", [], nowS)];
             case PilotPhase.TakeoffCleared when ctx.OnGround?.Invoke() == false:
                 return Airborne(c, nowS);
+            // Nadie a quien pasarlo (sin Departure, Approach ni Centro conocido): el vuelo sigue solo, sin ATC, y llama a
+            // la primera dependencia que aparezca (ADR-173: EGLL-EDDF quedó en "sigue la SID" hasta Frankfurt).
+            case PilotPhase.Airborne when DepartureStation is null && AglFt is >= UncontrolledAfterAglFt:
+                Phase = PilotPhase.EnRoute;
+                _cruiseCleared = true;
+                _leftWithoutAtc = true;
+                log?.Invoke(Tr.F("{0}: sin ATC después de despegar (no hay Salidas, Aproximación ni Centro conocido); sigue solo.", Callsign));
+                return [];
             default:
                 return [];
         }
@@ -980,7 +996,7 @@ public sealed partial class PilotSession(DepartureContext ctx, Random? random = 
     /// alinear detrás (autorización condicional, CAP 413 §4.33: "behind the departing DC9, line up runway 26 behind").
     /// </summary>
     private static bool CanLineUpBehind(PilotRunwayStatus st) =>
-        st is { AheadCount: 0, AtHoldingPoint: true, OccupantDeparting: true, OccupiedBy: not null };
+        st is { AheadCount: 0, AtHoldingPoint: true, OccupantDeparting: true, OccupiedBy: not null, ArrivalAllowsLineUp: true };
 
     /// <summary>El tráfico de la autorización condicional ("A320"), o null si la de alinear no es condicional.</summary>
     private string? _lineUpBehind;

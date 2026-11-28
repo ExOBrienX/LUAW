@@ -150,10 +150,37 @@ public sealed partial class MainWindowViewModel
     /// ADR-085: al activar el destino en vuelo se reserva el puesto del piloto antes de estacionar a los IA (prueba de Marco
     /// en SCIE: Ground le dio el Gate 11, ocupado por un estacionado).
     /// </summary>
+    private (string? Type, double SpanM, int Engines) _userSpan = (null, Core.Engine.TrafficEngine.DefaultUserWingspanM, 2);
+
+    /// <summary>Envergadura del avión del piloto para el radar (m).</summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+    private double _pilotWingspanM = Core.Engine.TrafficEngine.DefaultUserWingspanM;
+
+    /// <summary>Silueta del avión del piloto para el radar.</summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+    private Core.Fleet.AircraftShape _pilotShape = Core.Fleet.AircraftShape.Narrow;
+
+    /// <summary>
+    /// Envergadura del avión del piloto (m): la de su tipo del plan en el catálogo de modelos (ADR-173); sin plan o sin
+    /// modelos de ese tipo, la supuesta de un A320.
+    /// </summary>
+    private double UserWingspanM
+    {
+        get
+        {
+            var type = Plan?.AircraftIcao;
+            if (_matcher is null)
+                return Core.Engine.TrafficEngine.DefaultUserWingspanM;
+            if (_userSpan.Type != type)
+                _userSpan = (type, _matcher.WingspanOf(type) ?? Core.Engine.TrafficEngine.DefaultUserWingspanM, _matcher.EnginesOf(type) ?? 2);
+            return _userSpan.SpanM;
+        }
+    }
+
     private void ReservePilotStand(Core.Airports.AirportData airport)
     {
         _pilotStand = null;
-        var stand = Core.Traffic.ParkedFleetPlanner.PilotStand(airport, Plan?.AirlineIcao, Core.Engine.TrafficEngine.UserWingspanM,
+        var stand = Core.Traffic.ParkedFleetPlanner.PilotStand(airport, Plan?.AirlineIcao, UserWingspanM,
             PilotStandBusy, Random.Shared);
         if (stand < 0)
             return;

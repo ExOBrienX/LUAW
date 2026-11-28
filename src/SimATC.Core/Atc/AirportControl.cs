@@ -36,6 +36,8 @@ public sealed class AirportControl
         {
             agents[i].Hold = HoldKind.None;
             agents[i].HoldFor = 0;
+            agents[i].RunwayHold = RunwayHold.None;
+            agents[i].HoldLeftS = double.NaN;
         }
         Ground.Update(agents, user);
         Safety.Update(agents, user, dt);

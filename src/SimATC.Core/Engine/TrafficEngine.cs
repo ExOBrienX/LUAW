@@ -18,7 +18,8 @@ namespace SimATC.Core.Engine;
 public readonly record struct AgentSnapshot(uint ObjectId, string Callsign, GeoPoint Position, double HeadingDeg,
     double AglFt, double SpeedKt, DeparturePhase Phase, HoldKind Hold = HoldKind.None, string? HoldFor = null,
     double ThrottlePercent = 0, int RunwayIndex = -1, bool Airborne = false, bool Virtual = false, double AltitudeFt = 0,
-    string? Destination = null, string? Origin = null, string? Type = null);
+    string? Destination = null, string? Origin = null, string? Type = null, double WingspanM = 0, int Engines = 2,
+    RunwayHold RunwayHold = RunwayHold.None, double HoldLeftS = double.NaN);
 
 /// <summary>
 /// Tiempo de CPU del motor por cuadro del simulador (µs) y totales, para el panel Diagnóstico. El cuadro se divide en
@@ -287,8 +288,14 @@ public sealed class TrafficEngine
     private volatile bool _userOnGround;
     private double _userHeading;
 
-    /// <summary>Envergadura supuesta del avión del piloto para separarse de él en tierra (m). APROXIMADO.</summary>
-    public const double UserWingspanM = 36;
+    /// <summary>Envergadura supuesta del avión del piloto si no se conoce su tipo (m). APROXIMADO.</summary>
+    public const double DefaultUserWingspanM = 36;
+
+    /// <summary>
+    /// Envergadura del avión del piloto para separarse de él en tierra (m): la de su tipo en el catálogo (ADR-173: con un
+    /// A330 se usaban los 36 m de un A320 y su cola entró en la cabina del IA que esperaba detrás).
+    /// </summary>
+    public double UserWingspanM { get; set; } = DefaultUserWingspanM;
 
     private double _userSpeedKt;
     private double _snapshotTimer;
@@ -330,8 +337,10 @@ public sealed class TrafficEngine
             {
                 _occupantAgent = null;
                 RunwayOccupied(gl.RunwayIndex, f);
-                var why = _occupantAgent is { } oa ? $"{_occupantWhy}: {oa.Phase} a {oa.SpeedKt:0} kt, espera {oa.Hold}/{oa.HoldFor}" : _occupantWhy;
-                _log(Tr.F("{0}: la pista {1} la ocupaba {2} ({3}).", f.Callsign, gl.Ident, _occupant ?? "nadie", why));
+                var why = _occupantAgent is { } oa
+                    ? Tr.F("{0}: {1} a {2:0} kt, espera {3}/{4}", Tr.T(_occupantWhy), oa.Phase, oa.SpeedKt, oa.Hold, oa.HoldFor)
+                    : Tr.T(_occupantWhy);
+                _log(Tr.F("{0}: la pista {1} la ocupaba {2} ({3}).", f.Callsign, gl.Ident, _occupant ?? Tr.T("nadie"), why));
             }
             // Espera sobre un fijo con nombre (ADR-076): fijo, altitud y una demora estimada (10 min, APROXIMADO).
             if (e == ArrivalEvent.Holding && f.HoldFixName.Length > 0)
@@ -1004,7 +1013,7 @@ public sealed class TrafficEngine
         _bridge.Remove(worst.ObjectId);
         worst.ObjectId = 0;
         _log(Tr.F("{0}: vuelve a virtual (a {1:0} NM) para dar su cupo a {2}", worst.Callsign, worstD / UnitConversions.MetersPerNauticalMile, best.Callsign)
-             + (bestActive ? " (llegada al aeropuerto)." : $" (a {bestD / UnitConversions.MetersPerNauticalMile:0} NM)."));
+             + (bestActive ? Tr.T(" (llegada al aeropuerto).") : Tr.F(" (a {0:0} NM).", bestD / UnitConversions.MetersPerNauticalMile)));
         Spawn(best, model.Title);
     }
 
@@ -1183,6 +1192,8 @@ public sealed class TrafficEngine
     private bool RunwayOccupied(int runwayIndex, AirborneAgent? arrival)
     {
         _occupant = null;
+        _occupantAgent = null;
+        _occupantWhy = "";
         for (var i = 0; i < _agents.Count; i++)
         {
             var a = _agents[i];
@@ -1218,7 +1229,10 @@ public sealed class TrafficEngine
         if (arrival is null)
             return false; // para el aterrizaje del piloto: él mismo no cuenta
         if (_control.Tower.PilotHoldsRunway(runwayIndex))
+        {
+            (_occupant, _occupantWhy) = (null, "el piloto, autorizado a alinearse o despegar");
             return true;
+        }
         // El piloto en tierra dentro del rectángulo de la pista.
         if (_hasUser && _userOnGround && arrival.Landing is { } l)
         {
@@ -1227,7 +1241,10 @@ public sealed class TrafficEngine
             var along = d * Math.Cos(off);
             var across = Math.Abs(d * Math.Sin(off));
             if (along > -60 && along < l.LengthM + 60 && across < 45)
+            {
+                (_occupant, _occupantWhy) = (null, "el piloto en la pista");
                 return true;
+            }
         }
         return false;
     }
@@ -1282,7 +1299,8 @@ public sealed class TrafficEngine
                     holdFor = _agents[j].Callsign;
             }
             snap[i] = new AgentSnapshot(a.ObjectId, a.Callsign, p.Position, p.HeadingTrueDeg, a.AglFt, a.SpeedKt, a.Phase,
-                a.Hold, holdFor, a.ThrottlePercent, a.RunwayIndex, Type: a.TypeDesignator);
+                a.Hold, holdFor, a.ThrottlePercent, a.RunwayIndex, Type: a.TypeDesignator, WingspanM: a.WingspanM, Engines: a.EngineCount,
+                RunwayHold: a.RunwayHold, HoldLeftS: a.HoldLeftS);
             _snapshotRefs[i] = a;
         }
         for (var i = 0; i < _air.Count; i++)
@@ -1291,7 +1309,7 @@ public sealed class TrafficEngine
             var p = f.Injected ? f.Pose(alpha) : f.Pose(1);
             snap[_agents.Count + i] = new AgentSnapshot(f.TrackId, f.Callsign, p.Position, p.HeadingTrueDeg, f.AglFt, f.SpeedKt,
                 PhaseOf(f.Phase), HoldKind.None, null, f.ThrottlePercent, f.Landing?.RunwayIndex ?? -1, true, !f.Injected,
-                p.AltitudeFt, f.Destination, f.Origin, f.TypeDesignator);
+                p.AltitudeFt, f.Destination, f.Origin, f.TypeDesignator, f.Model?.WingspanM ?? 0, f.EngineCount);
             _snapshotRefs[_agents.Count + i] = f;
         }
         _snapshotCount = _agents.Count + _air.Count;

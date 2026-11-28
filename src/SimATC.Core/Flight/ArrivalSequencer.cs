@@ -306,7 +306,7 @@ public sealed class ArrivalSequencer
     {
         var l = a.Landing!;
         a.GoAround(FlightPlanner.GoAround(l, a.Position), l.ElevationFt + 3000);
-        Log?.Invoke(Tr.F("{0}: motor y al aire ({1}).", a.Callsign, why));
+        Log?.Invoke(Tr.F("{0}: motor y al aire ({1}).", a.Callsign, Tr.T(why)));
         Event?.Invoke(a, ArrivalEvent.GoAround);
     }
 

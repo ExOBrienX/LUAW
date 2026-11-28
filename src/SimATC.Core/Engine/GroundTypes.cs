@@ -33,5 +33,23 @@ public enum HoldKind
     Wake,
 }
 
+/// <summary>Por qué espera la pista (<see cref="HoldKind.Runway"/>), para la tarjeta del avión.</summary>
+public enum RunwayHold
+{
+    None,
+    /// <summary>Otro avión en la pista, cruzándola o autorizado a alinearse.</summary>
+    Occupied,
+    /// <summary>Una llegada a esa pista dentro de poco.</summary>
+    Arrival,
+    /// <summary>El avión del piloto está en la pista.</summary>
+    UserOnRunway,
+    /// <summary>El piloto tiene la pista (autorizado) o llegó antes a la fila.</summary>
+    PilotTurn,
+    /// <summary>Le queda poca pista (después de abortar).</summary>
+    ShortRunway,
+    /// <summary>Espera para cruzar una pista.</summary>
+    Crossing,
+}
+
 /// <summary>Aviso de llegada (ADR-094): tramos dirigidos de su rodaje previsto y los cruces del comienzo (al salir de la pista).</summary>
 public sealed record ArrivalRoute(long[] Keys, int[] ExitNodes);

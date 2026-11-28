@@ -1,3 +1,4 @@
+using SimATC.Core.Text;
 using SimATC.Core.Airports;
 using SimATC.Core.Plan;
 
@@ -44,7 +45,7 @@ public static class SidClearance
         var top = TopOfSid(sid, runway);
         // Sin datos AIP: la del simulador (cada aeropuerto del mundo trae la suya); 18000 ft solo si tampoco hay.
         var ta = atc?.TransitionAltitudeFt ?? simTransitionAltitudeFt ?? 18000;
-        return top is { } t ? new ClearedLevel(t, "restricciones de la SID en el simulador", t > ta) : null;
+        return top is { } t ? new ClearedLevel(t, Tr.T("restricciones de la SID en el simulador"), t > ta) : null;
     }
 
     /// <summary>La mayor altitud de las restricciones de los tramos de la SID para esa pista (el límite superior en "entre").</summary>

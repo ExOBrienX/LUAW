@@ -78,50 +78,105 @@ public sealed class ParkedTraffic
         var created = new List<InjectedParked>();
         // Por geometría: los puestos superpuestos en los datos (el mismo lugar como mediano y pesado) cuentan juntos.
         var usedStands = busyStands is null ? new HashSet<int>() : Overlapping(airport, busyStands);
-        foreach (var p in plan)
+        // Los Parked ATC se piden de a varios (ADR-172): cada uno espera ~2 s a que el simulador lo ubique, y de a uno
+        // 95 aviones tardaban 3 minutos. Las respuestas se revisan en el orden del plan, igual que antes.
+        var atc = new Task<ParkedAtcResult>?[plan.Count];
+        var nextAtc = 0;
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            progress?.Invoke(++index, plan.Count, p);
+            for (var i = 0; i < plan.Count; i++)
+            {
+                var p = plan[i];
+                ct.ThrowIfCancellationRequested();
+                nextAtc = StartParkedAtc(bridge, airport, plan, atc, nextAtc, i, ct);
+                progress?.Invoke(++index, plan.Count, p);
+                try
+                {
+                    // 1) Parked ATC: el simulador elige el puesto (según envergadura y códigos de la aerolínea) y conecta la
+                    //    pasarela. Se acepta si quedó en un puesto conocido, libre y lejos del piloto.
+                    //    La decoración (aviación general, remotos "de noche") no usa ATC: nunca sale.
+                    //    Tampoco un fuselaje ancho en una puerta chica: el simulador lo mandaría a otro lado.
+                    var pending = atc[i];
+                    atc[i] = null;
+                    var item = pending is null ? null : await TryParkedAtcAsync(bridge, airport, p, pending, usedStands, user, log).ConfigureAwait(false);
+                    // 2) Si no: sin ATC en el puesto que eligió el planificador (si sigue libre).
+                    //    El simulador reparte los Parked ATC a su manera: si su puesto quedó ocupado, otro igual que esté libre.
+                    var at = p;
+                    if (item is null && usedStands.Contains(p.ParkingIndex) && p.WideHalfSpanM <= 0 && !p.Decor
+                        && SameKind(airport, p, usedStands, user) is >= 0 and var other)
+                        at = p with { ParkingIndex = other, Parking = airport.Parkings[other] };
+                    if (item is null && !usedStands.Contains(at.ParkingIndex))
+                    {
+                        var request = new ParkedSpawnRequest(p.Match.Model.Title, p.TailNumber, at.Position,
+                            airport.ElevationFt, at.Parking.HeadingTrueDeg, p.Match.Model.EngineCount);
+                        item = new InjectedParked(await bridge.SpawnParkedAsync(request, ct).ConfigureAwait(false), at);
+                    }
+                    if (item is null)
+                    {
+                        log(Tr.F("{0}: sin puesto libre.", p.TailNumber));
+                        continue;
+                    }
+                    usedStands.UnionWith(Overlapping(airport, [item.Aircraft.ParkingIndex]));
+                    if (item.Aircraft.WideHalfSpanM > 0)
+                        usedStands.UnionWith(BlockedBy(airport, item.Aircraft.ParkingIndex, item.Aircraft.WideHalfSpanM));
+                    created.Add(item);
+                    lock (_lock)
+                        _items = [.. created];
+                    var a = item.Aircraft;
+                    log(Tr.F("{0}: {1} {2} en {3}{4}{5} → {6} [{7}]", a.TailNumber, a.Airline, a.Type, a.Parking.DisplayName, (item.IsParkedAtc ? Tr.T(" (Parked ATC, pasarela)") : ""), (a.Decor ? Tr.T(" (decoración)") : ""), a.Match.Model.Title, a.Match.Kind));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Un avión que falla no detiene a los demás (RNF-06).
+                    log(Tr.F("{0}: no se pudo crear ({1}).", p.TailNumber, ex.Message));
+                }
+            }
+        }
+        finally
+        {
+            // Si se cortó la carga, los pedidos que siguen en vuelo se borran apenas el simulador los cree.
+            foreach (var t in atc)
+                t?.ContinueWith(r => bridge.Remove(r.Result.ObjectId), CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+        }
+        return created.Count;
+    }
+
+    /// <summary>Cuántos Parked ATC se piden a la vez al simulador.</summary>
+    public const int ParkedAtcInFlight = 8;
+
+    /// <summary>¿Este avión del plan se pide como Parked ATC? (ni decoración ni ancho en puerta chica).</summary>
+    private static bool UsesParkedAtc(ParkedAircraft p) => !p.Decor && p.WideHalfSpanM <= 0;
+
+    /// <summary>
+    /// Pide los Parked ATC de los próximos aviones del plan hasta tener <see cref="ParkedAtcInFlight"/> en vuelo
+    /// desde <paramref name="current"/>. Devuelve hasta dónde quedó pedido.
+    /// </summary>
+    private static int StartParkedAtc(ISimBridge bridge, AirportData airport, List<ParkedAircraft> plan,
+        Task<ParkedAtcResult>?[] atc, int next, int current, CancellationToken ct)
+    {
+        next = Math.Max(next, current);
+        var inFlight = 0;
+        for (var j = current; j < next; j++)
+            if (atc[j] is not null)
+                inFlight++;
+        for (; next < plan.Count && inFlight < ParkedAtcInFlight; next++)
+        {
+            var p = plan[next];
+            if (!UsesParkedAtc(p))
+                continue;
             try
             {
-                // 1) Parked ATC: el simulador elige el puesto (según envergadura y códigos de la aerolínea) y conecta la
-                //    pasarela. Se acepta si quedó en un puesto conocido, libre y lejos del piloto.
-                //    La decoración (aviación general, remotos "de noche") no usa ATC: nunca sale.
-                //    Tampoco un fuselaje ancho en una puerta chica: el simulador lo mandaría a otro lado.
-                var item = p.Decor || p.WideHalfSpanM > 0 ? null : await TryParkedAtcAsync(bridge, airport, p, usedStands, user, log, ct).ConfigureAwait(false);
-                // 2) Si no: sin ATC en el puesto que eligió el planificador (si sigue libre).
-                //    El simulador reparte los Parked ATC a su manera: si su puesto quedó ocupado, otro igual que esté libre.
-                var at = p;
-                if (item is null && usedStands.Contains(p.ParkingIndex) && p.WideHalfSpanM <= 0 && !p.Decor
-                    && SameKind(airport, p, usedStands, user) is >= 0 and var other)
-                    at = p with { ParkingIndex = other, Parking = airport.Parkings[other] };
-                if (item is null && !usedStands.Contains(at.ParkingIndex))
-                {
-                    var request = new ParkedSpawnRequest(p.Match.Model.Title, p.TailNumber, at.Position,
-                        airport.ElevationFt, at.Parking.HeadingTrueDeg, p.Match.Model.EngineCount);
-                    item = new InjectedParked(await bridge.SpawnParkedAsync(request, ct).ConfigureAwait(false), at);
-                }
-                if (item is null)
-                {
-                    log(Tr.F("{0}: sin puesto libre.", p.TailNumber));
-                    continue;
-                }
-                usedStands.UnionWith(Overlapping(airport, [item.Aircraft.ParkingIndex]));
-                if (item.Aircraft.WideHalfSpanM > 0)
-                    usedStands.UnionWith(BlockedBy(airport, item.Aircraft.ParkingIndex, item.Aircraft.WideHalfSpanM));
-                created.Add(item);
-                lock (_lock)
-                    _items = [.. created];
-                var a = item.Aircraft;
-                log(Tr.F("{0}: {1} {2} en {3}{4}{5} → {6} [{7}]", a.TailNumber, a.Airline, a.Type, a.Parking.DisplayName, (item.IsParkedAtc ? Tr.T(" (Parked ATC, pasarela)") : ""), (a.Decor ? Tr.T(" (decoración)") : ""), a.Match.Model.Title, a.Match.Kind));
+                atc[next] = bridge.SpawnParkedAtcAsync(
+                    new ParkedAtcRequest(p.Match.Model.Title, p.TailNumber, airport.Icao, p.Match.Model.EngineCount), ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                // Un avión que falla no detiene a los demás (RNF-06).
-                log(Tr.F("{0}: no se pudo crear ({1}).", p.TailNumber, ex.Message));
+                atc[next] = Task.FromException<ParkedAtcResult>(ex);
             }
+            inFlight++;
         }
-        return created.Count;
+        return next;
     }
 
     /// <summary>Los puestos dados y todos los que se tocan con alguno de ellos (círculos de puesto superpuestos).</summary>
@@ -176,13 +231,12 @@ public sealed class ParkedTraffic
     public const double ParkedAtcStandToleranceM = 12;
 
     private static async Task<InjectedParked?> TryParkedAtcAsync(ISimBridge bridge, AirportData airport, ParkedAircraft p,
-        HashSet<int> usedStands, GeoPoint? user, Action<string> log, CancellationToken ct)
+        Task<ParkedAtcResult> pending, HashSet<int> usedStands, GeoPoint? user, Action<string> log, bool retry = true)
     {
         ParkedAtcResult result;
         try
         {
-            result = await bridge.SpawnParkedAtcAsync(
-                new ParkedAtcRequest(p.Match.Model.Title, p.TailNumber, airport.Icao, p.Match.Model.EngineCount), ct).ConfigureAwait(false);
+            result = await pending.ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -209,6 +263,22 @@ public sealed class ParkedTraffic
         if (reason is not null)
         {
             bridge.Remove(result.ObjectId);
+            // Pedido junto con otro, el simulador pudo darle el mismo puesto (ADR-172): una vez más, ya sabiendo que está ocupado.
+            if (retry && stand >= 0 && usedStands.Contains(stand))
+            {
+                log(Tr.F("{0}: el simulador lo dejó en un puesto ya ocupado; se pide otra vez.", p.TailNumber));
+                Task<ParkedAtcResult> again;
+                try
+                {
+                    again = bridge.SpawnParkedAtcAsync(
+                        new ParkedAtcRequest(p.Match.Model.Title, p.TailNumber, airport.Icao, p.Match.Model.EngineCount), CancellationToken.None);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    again = Task.FromException<ParkedAtcResult>(ex);
+                }
+                return await TryParkedAtcAsync(bridge, airport, p, again, usedStands, user, log, retry: false).ConfigureAwait(false);
+            }
             log(Tr.F("{0}: el simulador lo dejó {1}; se crea sin ATC.", p.TailNumber, reason));
             return null;
         }

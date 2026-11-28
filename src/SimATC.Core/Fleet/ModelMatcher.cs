@@ -61,6 +61,26 @@ public sealed partial class ModelMatcher
 
     public int ModelCount => _all.Count;
 
+    /// <summary>Motores de un tipo: los de la mayoría de sus modelos; null si no hay ninguno.</summary>
+    public int? EnginesOf(string? icaoType)
+    {
+        if (string.IsNullOrWhiteSpace(icaoType))
+            return null;
+        var counts = _all.Where(m => m.EngineCount > 0 && string.Equals(m.IcaoType, icaoType.Trim(), StringComparison.OrdinalIgnoreCase))
+            .GroupBy(m => m.EngineCount).OrderByDescending(g => g.Count()).FirstOrDefault();
+        return counts?.Key;
+    }
+
+    /// <summary>Envergadura de un tipo (m): la mediana de sus modelos con el dato leído; null si no hay ninguno.</summary>
+    public double? WingspanOf(string? icaoType)
+    {
+        if (string.IsNullOrWhiteSpace(icaoType))
+            return null;
+        var spans = _all.Where(m => m.WingspanM > 0 && string.Equals(m.IcaoType, icaoType.Trim(), StringComparison.OrdinalIgnoreCase))
+            .Select(m => m.WingspanM).Order().ToList();
+        return spans.Count == 0 ? null : spans[spans.Count / 2];
+    }
+
     /// <summary>Librea inventada (aerolínea virtual): nunca se usa (ADR-166).</summary>
     public static bool IsFictional(AircraftModel m) => m.Title.Contains("Fictional", StringComparison.OrdinalIgnoreCase);
 
